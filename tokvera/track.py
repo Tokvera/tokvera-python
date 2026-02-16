@@ -7,7 +7,7 @@ import time
 from typing import Any, Callable, Optional, Sequence
 
 from .ingest import ingest_event_async
-from .types import AnalyticsEvent, TrackingContext, UsageMetrics
+from .types import AnalyticsEvent, EventError, TrackingContext, UsageMetrics
 
 
 def track_openai(
@@ -65,6 +65,7 @@ class _CompletionsNamespace:
     def create(self, *args: Any, **kwargs: Any) -> Any:
         return _tracked_call(
             call=lambda: self._completions.create(*args, **kwargs),
+            endpoint="chat.completions.create",
             context=self._context,
             kwargs=kwargs,
         )
@@ -81,6 +82,7 @@ class _ResponsesNamespace:
     def create(self, *args: Any, **kwargs: Any) -> Any:
         return _tracked_call(
             call=lambda: self._responses.create(*args, **kwargs),
+            endpoint="responses.create",
             context=self._context,
             kwargs=kwargs,
         )
@@ -89,15 +91,22 @@ class _ResponsesNamespace:
         return getattr(self._responses, item)
 
 
-def _tracked_call(call: Callable[[], Any], *, context: TrackingContext, kwargs: dict[str, Any]) -> Any:
+def _tracked_call(
+    call: Callable[[], Any],
+    *,
+    endpoint: str,
+    context: TrackingContext,
+    kwargs: dict[str, Any],
+) -> Any:
     started = time.perf_counter()
     model = _extract_model(kwargs)
 
     try:
         response = call()
-    except Exception:
+    except Exception as exc:
         latency_ms = _elapsed_ms(started)
         event = _build_event(
+            endpoint=endpoint,
             context=context,
             model=model,
             usage=UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0),
@@ -105,6 +114,7 @@ def _tracked_call(call: Callable[[], Any], *, context: TrackingContext, kwargs: 
             status="failure",
             kwargs=kwargs,
             response=None,
+            error=exc,
         )
         _safe_emit(event.to_payload(), api_key=context.api_key)
         raise
@@ -113,6 +123,7 @@ def _tracked_call(call: Callable[[], Any], *, context: TrackingContext, kwargs: 
     usage = _extract_usage(response)
 
     event = _build_event(
+        endpoint=endpoint,
         context=context,
         model=model or _extract_model_from_response(response),
         usage=usage,
@@ -120,6 +131,7 @@ def _tracked_call(call: Callable[[], Any], *, context: TrackingContext, kwargs: 
         status="success",
         kwargs=kwargs,
         response=response,
+        error=None,
     )
     _safe_emit(event.to_payload(), api_key=context.api_key)
     return response
@@ -127,6 +139,7 @@ def _tracked_call(call: Callable[[], Any], *, context: TrackingContext, kwargs: 
 
 def _build_event(
     *,
+    endpoint: str,
     context: TrackingContext,
     model: Optional[str],
     usage: UsageMetrics,
@@ -134,6 +147,7 @@ def _build_event(
     status: str,
     kwargs: dict[str, Any],
     response: Any,
+    error: Optional[Exception],
 ) -> AnalyticsEvent:
     prompt_hash: Optional[str] = None
     response_hash: Optional[str] = None
@@ -142,23 +156,29 @@ def _build_event(
         prompt_hash = _hash_content(_extract_prompt_like(kwargs))
         response_hash = _hash_content(_extract_response_content(response))
 
+    event_error = None
+    if error is not None:
+        event_error = EventError(type=error.__class__.__name__, message=str(error))
+
     return AnalyticsEvent(
+        schema_version="2026-02-16",
+        event_type="openai.request",
         provider="openai",
+        endpoint=endpoint,
+        status="success" if status == "success" else "failure",
+        timestamp=dt.datetime.now(dt.timezone.utc).isoformat(),
+        latency_ms=latency_ms,
         model=model or "unknown",
+        usage=usage,
         feature=context.feature,
         tenant_id=context.tenant_id,
         customer_id=context.customer_id,
         plan=context.plan,
         environment=context.environment,
         template_id=context.template_id,
-        prompt_tokens=usage.prompt_tokens,
-        completion_tokens=usage.completion_tokens,
-        total_tokens=usage.total_tokens,
-        latency_ms=latency_ms,
-        status="success" if status == "success" else "failure",
-        timestamp=dt.datetime.now(dt.timezone.utc).isoformat(),
         prompt_hash=prompt_hash,
         response_hash=response_hash,
+        error=event_error,
     )
 
 

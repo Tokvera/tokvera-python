@@ -74,12 +74,17 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
 
     assert result is response
     assert len(emitted) == 1
+    assert emitted[0]["schema_version"] == "2026-02-16"
     assert emitted[0]["provider"] == "openai"
+    assert emitted[0]["event_type"] == "openai.request"
+    assert emitted[0]["endpoint"] == "chat.completions.create"
     assert emitted[0]["status"] == "success"
     assert emitted[0]["model"] == "gpt-4o-mini"
-    assert emitted[0]["prompt_tokens"] == 10
-    assert emitted[0]["completion_tokens"] == 5
-    assert emitted[0]["total_tokens"] == 15
+    assert emitted[0]["usage"]["prompt_tokens"] == 10
+    assert emitted[0]["usage"]["completion_tokens"] == 5
+    assert emitted[0]["usage"]["total_tokens"] == 15
+    assert emitted[0]["tags"]["feature"] == "support_bot"
+    assert emitted[0]["tags"]["tenant_id"] == "acme"
 
 
 def test_responses_wrapper_returns_original_object(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -104,6 +109,7 @@ def test_responses_wrapper_returns_original_object(monkeypatch: pytest.MonkeyPat
 
     assert result is response
     assert len(emitted) == 1
+    assert emitted[0]["endpoint"] == "responses.create"
     assert emitted[0]["status"] == "success"
 
 
@@ -160,4 +166,7 @@ def test_failure_in_openai_call_is_re_raised_and_still_attempts_ingest(monkeypat
         client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}])
 
     assert len(emitted) == 1
+    assert emitted[0]["endpoint"] == "chat.completions.create"
     assert emitted[0]["status"] == "failure"
+    assert emitted[0]["error"]["type"] == "ValueError"
+    assert emitted[0]["error"]["message"] == "openai failure"

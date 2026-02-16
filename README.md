@@ -20,10 +20,10 @@ Set your ingestion endpoint:
 
 ```bash
 # Linux/macOS
-export TOKVERA_INGEST_URL="https://your-ingest-endpoint/events"
+export TOKVERA_INGEST_URL="https://your-ingest-endpoint/v1/events"
 
 # Windows PowerShell
-$env:TOKVERA_INGEST_URL = "https://your-ingest-endpoint/events"
+$env:TOKVERA_INGEST_URL = "https://your-ingest-endpoint/v1/events"
 ```
 
 If `TOKVERA_INGEST_URL` is not set, analytics are skipped automatically.
@@ -52,6 +52,20 @@ response = client.chat.completions.create(
     messages=[{"role": "user", "content": "Hello"}],
 )
 ```
+
+## Event Schema
+
+Events include:
+- `schema_version`: `2026-02-16`
+- `event_type`: `openai.request`
+- `provider`: `openai`
+- `endpoint`: `chat.completions.create` or `responses.create`
+- `status`: `success` or `failure`
+- `latency_ms`
+- `model`
+- `usage`: `prompt_tokens`, `completion_tokens`, `total_tokens`
+- `tags`: `feature`, `tenant_id`, `customer_id`, `plan`, `environment`, `template_id`
+- `error` on failure events
 
 ## Privacy
 
