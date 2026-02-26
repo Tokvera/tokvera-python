@@ -6,6 +6,8 @@ import threading
 from typing import Any, Dict
 from urllib import error, request
 
+DEFAULT_USER_AGENT = "tokvera-python-sdk/0.1"
+
 
 def ingest_event(event: Dict[str, Any], *, api_key: str, timeout: float = 2.0) -> None:
     ingest_url = os.getenv("TOKVERA_INGEST_URL")
@@ -19,6 +21,7 @@ def ingest_event(event: Dict[str, Any], *, api_key: str, timeout: float = 2.0) -
         headers={
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
+            "User-Agent": DEFAULT_USER_AGENT,
         },
         method="POST",
     )

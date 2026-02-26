@@ -20,10 +20,10 @@ Set your ingestion endpoint:
 
 ```bash
 # Linux/macOS
-export TOKVERA_INGEST_URL="https://your-ingest-endpoint/v1/events"
+export TOKVERA_INGEST_URL="https://api.tokvera.com/v1/events"
 
 # Windows PowerShell
-$env:TOKVERA_INGEST_URL = "https://your-ingest-endpoint/v1/events"
+$env:TOKVERA_INGEST_URL = "https://api.tokvera.com/v1/events"
 ```
 
 If `TOKVERA_INGEST_URL` is not set, analytics are skipped automatically.
@@ -54,6 +54,8 @@ response = client.chat.completions.create(
 ```
 
 ## Event Schema
+
+Canonical specification: [`tokvera-api/docs/EVENT_SCHEMA.md`](https://github.com/Tokvera/tokvera-api/blob/main/docs/EVENT_SCHEMA.md)
 
 Events include:
 - `schema_version`: `2026-02-16`
