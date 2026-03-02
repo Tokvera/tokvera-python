@@ -12,6 +12,7 @@ class TrackingContext:
     feature: str
     tenant_id: str
     customer_id: Optional[str] = None
+    attempt_type: Optional[str] = None
     plan: Optional[str] = None
     environment: Optional[str] = None
     template_id: Optional[str] = None
@@ -45,6 +46,7 @@ class AnalyticsEvent:
     feature: str
     tenant_id: str
     customer_id: Optional[str]
+    attempt_type: Optional[str]
     plan: Optional[str]
     environment: Optional[str]
     template_id: Optional[str]
@@ -71,6 +73,7 @@ class AnalyticsEvent:
                 "feature": self.feature,
                 "tenant_id": self.tenant_id,
                 "customer_id": self.customer_id,
+                "attempt_type": self.attempt_type,
                 "plan": self.plan,
                 "environment": self.environment,
                 "template_id": self.template_id,

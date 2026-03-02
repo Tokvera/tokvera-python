@@ -115,6 +115,7 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
         api_key="tokvera_project_key",
         feature="support_bot",
         tenant_id="acme",
+        attempt_type="regenerate",
         plan="pro",
         environment="production",
         template_id="support_v3",
@@ -136,6 +137,7 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
     assert emitted[0]["usage"]["total_tokens"] == 15
     assert emitted[0]["tags"]["feature"] == "support_bot"
     assert emitted[0]["tags"]["tenant_id"] == "acme"
+    assert emitted[0]["tags"]["attempt_type"] == "regenerate"
 
 
 def test_responses_wrapper_returns_original_object(monkeypatch: pytest.MonkeyPatch) -> None:
