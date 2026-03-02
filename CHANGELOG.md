@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-03-02
+
+### Added
+- Anthropic tracking wrapper via `track_anthropic(...)` for `messages.create`.
+- Gemini tracking wrapper via `track_gemini(...)` for `models.generate_content`.
+- Multi-provider event contracts aligned with Tokvera API schema.
+- Provider-specific usage extraction for OpenAI, Anthropic, and Gemini responses.
+- Test coverage for Anthropic/Gemini emission flows.
+
 ## [0.1.0] - 2026-02-16
 
 ### Added
