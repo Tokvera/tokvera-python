@@ -36,6 +36,58 @@ def track_openai(
     return _TrackedOpenAIClient(openai_client, context)
 
 
+def track_anthropic(
+    anthropic_client: Any,
+    *,
+    api_key: str,
+    feature: str,
+    tenant_id: str,
+    customer_id: Optional[str] = None,
+    plan: Optional[str] = None,
+    environment: Optional[str] = None,
+    template_id: Optional[str] = None,
+    capture_content: bool = False,
+) -> Any:
+    context = TrackingContext(
+        api_key=api_key,
+        feature=feature,
+        tenant_id=tenant_id,
+        customer_id=customer_id,
+        plan=plan,
+        environment=environment,
+        template_id=template_id,
+        capture_content=capture_content,
+    )
+
+    return _TrackedAnthropicClient(anthropic_client, context)
+
+
+def track_gemini(
+    gemini_client: Any,
+    *,
+    api_key: str,
+    feature: str,
+    tenant_id: str,
+    customer_id: Optional[str] = None,
+    plan: Optional[str] = None,
+    environment: Optional[str] = None,
+    template_id: Optional[str] = None,
+    capture_content: bool = False,
+) -> Any:
+    context = TrackingContext(
+        api_key=api_key,
+        feature=feature,
+        tenant_id=tenant_id,
+        customer_id=customer_id,
+        plan=plan,
+        environment=environment,
+        template_id=template_id,
+        capture_content=capture_content,
+    )
+
+    return _TrackedGeminiClient(gemini_client, context)
+
+
 class _TrackedOpenAIClient:
     def __init__(self, client: Any, context: TrackingContext) -> None:
         self._client = client
@@ -43,6 +95,26 @@ class _TrackedOpenAIClient:
 
         self.chat = _ChatNamespace(client.chat, context)
         self.responses = _ResponsesNamespace(client.responses, context)
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._client, item)
+
+
+class _TrackedAnthropicClient:
+    def __init__(self, client: Any, context: TrackingContext) -> None:
+        self._client = client
+        self._context = context
+        self.messages = _AnthropicMessagesNamespace(client.messages, context)
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._client, item)
+
+
+class _TrackedGeminiClient:
+    def __init__(self, client: Any, context: TrackingContext) -> None:
+        self._client = client
+        self._context = context
+        self.models = _GeminiModelsNamespace(client.models, context)
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self._client, item)
@@ -65,9 +137,13 @@ class _CompletionsNamespace:
     def create(self, *args: Any, **kwargs: Any) -> Any:
         return _tracked_call(
             call=lambda: self._completions.create(*args, **kwargs),
+            provider="openai",
+            event_type="openai.request",
             endpoint="chat.completions.create",
             context=self._context,
             kwargs=kwargs,
+            usage_extractor=_extract_openai_usage,
+            model_from_response_extractor=_extract_model_from_response,
         )
 
     def __getattr__(self, item: str) -> Any:
@@ -82,21 +158,86 @@ class _ResponsesNamespace:
     def create(self, *args: Any, **kwargs: Any) -> Any:
         return _tracked_call(
             call=lambda: self._responses.create(*args, **kwargs),
+            provider="openai",
+            event_type="openai.request",
             endpoint="responses.create",
             context=self._context,
             kwargs=kwargs,
+            usage_extractor=_extract_openai_usage,
+            model_from_response_extractor=_extract_model_from_response,
         )
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self._responses, item)
 
 
+class _AnthropicMessagesNamespace:
+    def __init__(self, messages: Any, context: TrackingContext) -> None:
+        self._messages = messages
+        self._context = context
+
+    def create(self, *args: Any, **kwargs: Any) -> Any:
+        return _tracked_call(
+            call=lambda: self._messages.create(*args, **kwargs),
+            provider="anthropic",
+            event_type="anthropic.request",
+            endpoint="messages.create",
+            context=self._context,
+            kwargs=kwargs,
+            usage_extractor=_extract_anthropic_usage,
+            model_from_response_extractor=_extract_model_from_response,
+        )
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._messages, item)
+
+
+class _GeminiModelsNamespace:
+    def __init__(self, models: Any, context: TrackingContext) -> None:
+        self._models = models
+        self._context = context
+
+        if not hasattr(models, "generate_content") and not hasattr(models, "generateContent"):
+            raise AttributeError("Gemini client models namespace must expose generate_content or generateContent.")
+
+    def generate_content(self, *args: Any, **kwargs: Any) -> Any:
+        return _tracked_call(
+            call=lambda: self._models.generate_content(*args, **kwargs),
+            provider="gemini",
+            event_type="gemini.request",
+            endpoint="models.generate_content",
+            context=self._context,
+            kwargs=kwargs,
+            usage_extractor=_extract_gemini_usage,
+            model_from_response_extractor=_extract_gemini_model_from_response,
+        )
+
+    def generateContent(self, *args: Any, **kwargs: Any) -> Any:  # noqa: N802
+        return _tracked_call(
+            call=lambda: self._models.generateContent(*args, **kwargs),
+            provider="gemini",
+            event_type="gemini.request",
+            endpoint="models.generate_content",
+            context=self._context,
+            kwargs=kwargs,
+            usage_extractor=_extract_gemini_usage,
+            model_from_response_extractor=_extract_gemini_model_from_response,
+        )
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._models, item)
+
+
 def _tracked_call(
     call: Callable[[], Any],
     *,
+    provider: str,
+    event_type: str,
     endpoint: str,
     context: TrackingContext,
     kwargs: dict[str, Any],
+    usage_extractor: Callable[[Any], UsageMetrics],
+    model_from_response_extractor: Callable[[Any], Optional[str]],
 ) -> Any:
     started = time.perf_counter()
     model = _extract_model(kwargs)
@@ -106,6 +247,8 @@ def _tracked_call(
     except Exception as exc:
         latency_ms = _elapsed_ms(started)
         event = _build_event(
+            provider=provider,
+            event_type=event_type,
             endpoint=endpoint,
             context=context,
             model=model,
@@ -120,12 +263,14 @@ def _tracked_call(
         raise
 
     latency_ms = _elapsed_ms(started)
-    usage = _extract_usage(response)
+    usage = usage_extractor(response)
 
     event = _build_event(
+        provider=provider,
+        event_type=event_type,
         endpoint=endpoint,
         context=context,
-        model=model or _extract_model_from_response(response),
+        model=model or model_from_response_extractor(response),
         usage=usage,
         latency_ms=latency_ms,
         status="success",
@@ -139,6 +284,8 @@ def _tracked_call(
 
 def _build_event(
     *,
+    provider: str,
+    event_type: str,
     endpoint: str,
     context: TrackingContext,
     model: Optional[str],
@@ -162,8 +309,8 @@ def _build_event(
 
     return AnalyticsEvent(
         schema_version="2026-02-16",
-        event_type="openai.request",
-        provider="openai",
+        event_type=event_type,
+        provider=provider,
         endpoint=endpoint,
         status="success" if status == "success" else "failure",
         timestamp=dt.datetime.now(dt.timezone.utc).isoformat(),
@@ -196,7 +343,18 @@ def _extract_model_from_response(response: Any) -> Optional[str]:
     return None
 
 
-def _extract_usage(response: Any) -> UsageMetrics:
+def _extract_gemini_model_from_response(response: Any) -> Optional[str]:
+    model = getattr(response, "model", None)
+    if isinstance(model, str) and model:
+        return model
+
+    model_version = getattr(response, "model_version", getattr(response, "modelVersion", None))
+    if isinstance(model_version, str) and model_version:
+        return model_version
+    return None
+
+
+def _extract_openai_usage(response: Any) -> UsageMetrics:
     usage = getattr(response, "usage", None)
     if usage is None:
         return UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0)
@@ -212,9 +370,52 @@ def _extract_usage(response: Any) -> UsageMetrics:
     )
 
 
+def _extract_anthropic_usage(response: Any) -> UsageMetrics:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+
+    prompt_tokens = _to_int(getattr(usage, "input_tokens", getattr(usage, "prompt_tokens", 0)))
+    completion_tokens = _to_int(getattr(usage, "output_tokens", getattr(usage, "completion_tokens", 0)))
+    total_tokens = _to_int(getattr(usage, "total_tokens", prompt_tokens + completion_tokens))
+
+    return UsageMetrics(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+    )
+
+
+def _extract_gemini_usage(response: Any) -> UsageMetrics:
+    usage = getattr(response, "usage_metadata", None) or getattr(response, "usageMetadata", None)
+    if usage is None:
+        return UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0)
+
+    prompt_tokens = _to_int(
+        getattr(usage, "prompt_token_count", getattr(usage, "promptTokenCount", 0))
+    )
+    completion_tokens = _to_int(
+        getattr(
+            usage,
+            "candidates_token_count",
+            getattr(usage, "candidatesTokenCount", getattr(usage, "completion_token_count", 0)),
+        )
+    )
+    total_tokens = _to_int(
+        getattr(usage, "total_token_count", getattr(usage, "totalTokenCount", prompt_tokens + completion_tokens))
+    )
+
+    return UsageMetrics(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+    )
+
+
 def _to_int(value: Any) -> int:
     try:
-        return int(value)
+        parsed = int(value)
+        return parsed if parsed >= 0 else 0
     except (TypeError, ValueError):
         return 0
 
@@ -224,6 +425,8 @@ def _extract_prompt_like(kwargs: dict[str, Any]) -> str:
         return _safe_json(kwargs.get("messages"))
     if "input" in kwargs:
         return _safe_json(kwargs.get("input"))
+    if "contents" in kwargs:
+        return _safe_json(kwargs.get("contents"))
     return ""
 
 
@@ -234,6 +437,10 @@ def _extract_response_content(response: Any) -> str:
     output_text = getattr(response, "output_text", None)
     if isinstance(output_text, str):
         return output_text
+
+    text = getattr(response, "text", None)
+    if isinstance(text, str):
+        return text
 
     choices = getattr(response, "choices", None)
     if isinstance(choices, Sequence):
@@ -274,4 +481,4 @@ def _safe_emit(payload: dict[str, Any], *, api_key: str) -> None:
         return
 
 
-# TODO: Add async OpenAI client wrapper support in a future version.
+# TODO: Add async wrapper support in a future version.

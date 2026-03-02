@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "tokvera"
 version = "0.1.0"
-description = "Lightweight OpenAI analytics tracking wrapper"
+description = "Lightweight multi-provider (OpenAI, Anthropic, Gemini) analytics tracking wrapper"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}

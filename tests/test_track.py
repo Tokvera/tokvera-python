@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from tokvera.track import track_openai
+from tokvera.track import track_anthropic, track_gemini, track_openai
 
 
 @dataclass
@@ -46,6 +46,57 @@ class _OpenAIClient:
     def __init__(self, response: Any) -> None:
         self.chat = _Chat(response)
         self.responses = _Responses(response)
+
+
+@dataclass
+class _AnthropicUsage:
+    input_tokens: int = 11
+    output_tokens: int = 7
+
+
+@dataclass
+class _AnthropicResponse:
+    model: str = "claude-3-5-sonnet-latest"
+    usage: _AnthropicUsage = field(default_factory=_AnthropicUsage)
+
+
+class _AnthropicMessages:
+    def __init__(self, response: Any) -> None:
+        self._response = response
+
+    def create(self, *args: Any, **kwargs: Any) -> Any:
+        return self._response
+
+
+class _AnthropicClient:
+    def __init__(self, response: Any) -> None:
+        self.messages = _AnthropicMessages(response)
+
+
+@dataclass
+class _GeminiUsageMetadata:
+    prompt_token_count: int = 9
+    candidates_token_count: int = 6
+    total_token_count: int = 15
+
+
+@dataclass
+class _GeminiResponse:
+    model_version: str = "gemini-2.0-flash"
+    usage_metadata: _GeminiUsageMetadata = field(default_factory=_GeminiUsageMetadata)
+
+
+class _GeminiModels:
+    def __init__(self, response: Any) -> None:
+        self._response = response
+
+    def generate_content(self, *args: Any, **kwargs: Any) -> Any:
+        return self._response
+
+
+class _GeminiClient:
+    def __init__(self, response: Any) -> None:
+        self.models = _GeminiModels(response)
 
 
 def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -170,3 +221,63 @@ def test_failure_in_openai_call_is_re_raised_and_still_attempts_ingest(monkeypat
     assert emitted[0]["status"] == "failure"
     assert emitted[0]["error"]["type"] == "ValueError"
     assert emitted[0]["error"]["message"] == "openai failure"
+
+
+def test_anthropic_wrapper_emits_anthropic_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = _AnthropicResponse()
+    anthropic_client = _AnthropicClient(response)
+
+    emitted: list[dict[str, Any]] = []
+
+    def fake_ingest(payload: dict[str, Any], *, api_key: str, timeout: float = 2.0) -> None:
+        emitted.append(payload)
+
+    monkeypatch.setattr("tokvera.track.ingest_event_async", fake_ingest)
+
+    client = track_anthropic(
+        anthropic_client,
+        api_key="tokvera_project_key",
+        feature="support_bot",
+        tenant_id="acme",
+    )
+
+    result = client.messages.create(model="claude-3-5-sonnet-latest", messages=[{"role": "user", "content": "hi"}])
+
+    assert result is response
+    assert len(emitted) == 1
+    assert emitted[0]["provider"] == "anthropic"
+    assert emitted[0]["event_type"] == "anthropic.request"
+    assert emitted[0]["endpoint"] == "messages.create"
+    assert emitted[0]["usage"]["prompt_tokens"] == 11
+    assert emitted[0]["usage"]["completion_tokens"] == 7
+    assert emitted[0]["usage"]["total_tokens"] == 18
+
+
+def test_gemini_wrapper_emits_gemini_event(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = _GeminiResponse()
+    gemini_client = _GeminiClient(response)
+
+    emitted: list[dict[str, Any]] = []
+
+    def fake_ingest(payload: dict[str, Any], *, api_key: str, timeout: float = 2.0) -> None:
+        emitted.append(payload)
+
+    monkeypatch.setattr("tokvera.track.ingest_event_async", fake_ingest)
+
+    client = track_gemini(
+        gemini_client,
+        api_key="tokvera_project_key",
+        feature="assistant",
+        tenant_id="acme",
+    )
+
+    result = client.models.generate_content(model="gemini-2.0-flash", contents="hello")
+
+    assert result is response
+    assert len(emitted) == 1
+    assert emitted[0]["provider"] == "gemini"
+    assert emitted[0]["event_type"] == "gemini.request"
+    assert emitted[0]["endpoint"] == "models.generate_content"
+    assert emitted[0]["usage"]["prompt_tokens"] == 9
+    assert emitted[0]["usage"]["completion_tokens"] == 6
+    assert emitted[0]["usage"]["total_tokens"] == 15

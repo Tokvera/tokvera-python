@@ -1,6 +1,6 @@
 # tokvera
 
-`tokvera` is a lightweight Python SDK that wraps the official OpenAI client and emits usage analytics in a fire-and-forget way.
+`tokvera` is a lightweight Python SDK that wraps OpenAI, Anthropic, and Gemini clients and emits usage analytics in a fire-and-forget way.
 
 ## Installation
 
@@ -30,6 +30,8 @@ If `TOKVERA_INGEST_URL` is not set, analytics are skipped automatically.
 
 ## Quick Start
 
+### OpenAI
+
 ```python
 from openai import OpenAI
 from tokvera import track_openai
@@ -53,15 +55,60 @@ response = client.chat.completions.create(
 )
 ```
 
+### Anthropic
+
+```python
+from anthropic import Anthropic
+from tokvera import track_anthropic
+
+anthropic_client = Anthropic(api_key="sk-ant-...")
+
+client = track_anthropic(
+    anthropic_client,
+    api_key="tokvera_project_key",
+    feature="support_bot",
+    tenant_id="acme",
+    environment="production",
+)
+
+client.messages.create(
+    model="claude-3-5-sonnet-latest",
+    max_tokens=256,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+```
+
+### Gemini
+
+```python
+from google import genai
+from tokvera import track_gemini
+
+gemini_client = genai.Client(api_key="AIza...")
+
+client = track_gemini(
+    gemini_client,
+    api_key="tokvera_project_key",
+    feature="assistant",
+    tenant_id="acme",
+    environment="production",
+)
+
+client.models.generate_content(
+    model="gemini-2.0-flash",
+    contents="Hello",
+)
+```
+
 ## Event Schema
 
 Canonical specification: [`tokvera-api/docs/EVENT_SCHEMA.md`](https://github.com/Tokvera/tokvera-api/blob/main/docs/EVENT_SCHEMA.md)
 
 Events include:
 - `schema_version`: `2026-02-16`
-- `event_type`: `openai.request`
-- `provider`: `openai`
-- `endpoint`: `chat.completions.create` or `responses.create`
+- `event_type`: `openai.request`, `anthropic.request`, or `gemini.request`
+- `provider`: `openai`, `anthropic`, or `gemini`
+- `endpoint`: `chat.completions.create`, `responses.create`, `messages.create`, `models.generate_content`
 - `status`: `success` or `failure`
 - `latency_ms`
 - `model`
