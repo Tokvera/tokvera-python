@@ -4,6 +4,7 @@ import datetime as dt
 import hashlib
 import json
 import time
+import uuid
 from typing import Any, Callable, Optional, Sequence
 
 from .ingest import ingest_event_async
@@ -21,6 +22,11 @@ def track_openai(
     plan: Optional[str] = None,
     environment: Optional[str] = None,
     template_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+    span_id: Optional[str] = None,
+    parent_span_id: Optional[str] = None,
+    step_name: Optional[str] = None,
     capture_content: bool = False,
 ) -> Any:
     context = TrackingContext(
@@ -32,6 +38,11 @@ def track_openai(
         plan=plan,
         environment=environment,
         template_id=template_id,
+        trace_id=trace_id,
+        conversation_id=conversation_id,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        step_name=step_name,
         capture_content=capture_content,
     )
 
@@ -49,6 +60,11 @@ def track_anthropic(
     plan: Optional[str] = None,
     environment: Optional[str] = None,
     template_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+    span_id: Optional[str] = None,
+    parent_span_id: Optional[str] = None,
+    step_name: Optional[str] = None,
     capture_content: bool = False,
 ) -> Any:
     context = TrackingContext(
@@ -60,6 +76,11 @@ def track_anthropic(
         plan=plan,
         environment=environment,
         template_id=template_id,
+        trace_id=trace_id,
+        conversation_id=conversation_id,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        step_name=step_name,
         capture_content=capture_content,
     )
 
@@ -77,6 +98,11 @@ def track_gemini(
     plan: Optional[str] = None,
     environment: Optional[str] = None,
     template_id: Optional[str] = None,
+    trace_id: Optional[str] = None,
+    conversation_id: Optional[str] = None,
+    span_id: Optional[str] = None,
+    parent_span_id: Optional[str] = None,
+    step_name: Optional[str] = None,
     capture_content: bool = False,
 ) -> Any:
     context = TrackingContext(
@@ -88,6 +114,11 @@ def track_gemini(
         plan=plan,
         environment=environment,
         template_id=template_id,
+        trace_id=trace_id,
+        conversation_id=conversation_id,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        step_name=step_name,
         capture_content=capture_content,
     )
 
@@ -313,6 +344,9 @@ def _build_event(
     if error is not None:
         event_error = EventError(type=error.__class__.__name__, message=str(error))
 
+    trace_id = context.trace_id or _new_id("trc")
+    span_id = context.span_id or _new_id("spn")
+
     return AnalyticsEvent(
         schema_version="2026-02-16",
         event_type=event_type,
@@ -330,6 +364,11 @@ def _build_event(
         plan=context.plan,
         environment=context.environment,
         template_id=context.template_id,
+        trace_id=trace_id,
+        conversation_id=context.conversation_id,
+        span_id=span_id,
+        parent_span_id=context.parent_span_id,
+        step_name=context.step_name,
         prompt_hash=prompt_hash,
         response_hash=response_hash,
         error=event_error,
@@ -478,6 +517,10 @@ def _hash_content(content: str) -> Optional[str]:
 
 def _elapsed_ms(started: float) -> int:
     return int((time.perf_counter() - started) * 1000)
+
+
+def _new_id(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex}"
 
 
 def _safe_emit(payload: dict[str, Any], *, api_key: str) -> None:

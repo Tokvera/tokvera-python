@@ -116,6 +116,10 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
         feature="support_bot",
         tenant_id="acme",
         attempt_type="regenerate",
+        trace_id="trace_support_123",
+        conversation_id="conv_88",
+        parent_span_id="spn_parent_01",
+        step_name="draft_reply",
         plan="pro",
         environment="production",
         template_id="support_v3",
@@ -138,6 +142,12 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
     assert emitted[0]["tags"]["feature"] == "support_bot"
     assert emitted[0]["tags"]["tenant_id"] == "acme"
     assert emitted[0]["tags"]["attempt_type"] == "regenerate"
+    assert emitted[0]["tags"]["trace_id"] == "trace_support_123"
+    assert emitted[0]["tags"]["conversation_id"] == "conv_88"
+    assert emitted[0]["tags"]["parent_span_id"] == "spn_parent_01"
+    assert emitted[0]["tags"]["step_name"] == "draft_reply"
+    assert isinstance(emitted[0]["tags"]["span_id"], str)
+    assert len(emitted[0]["tags"]["span_id"]) > 0
 
 
 def test_responses_wrapper_returns_original_object(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -164,6 +174,8 @@ def test_responses_wrapper_returns_original_object(monkeypatch: pytest.MonkeyPat
     assert len(emitted) == 1
     assert emitted[0]["endpoint"] == "responses.create"
     assert emitted[0]["status"] == "success"
+    assert isinstance(emitted[0]["tags"]["trace_id"], str)
+    assert isinstance(emitted[0]["tags"]["span_id"], str)
 
 
 def test_ingestion_failure_does_not_break_user_response(monkeypatch: pytest.MonkeyPatch) -> None:

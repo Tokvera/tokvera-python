@@ -43,6 +43,9 @@ client = track_openai(
     api_key="tokvera_project_key",
     feature="support_bot",
     tenant_id="acme",
+    trace_id="trace_support_001",
+    conversation_id="conv_42",
+    step_name="draft_reply",
     plan="pro",
     environment="production",
     template_id="support_v3",
@@ -113,8 +116,10 @@ Events include:
 - `latency_ms`
 - `model`
 - `usage`: `prompt_tokens`, `completion_tokens`, `total_tokens`
-- `tags`: `feature`, `tenant_id`, `customer_id`, `attempt_type`, `plan`, `environment`, `template_id`
+- `tags`: `feature`, `tenant_id`, `customer_id`, `attempt_type`, `plan`, `environment`, `template_id`, `trace_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`
 - `error` on failure events
+
+`trace_id` and `span_id` are auto-generated per request if not provided.
 
 ## Privacy
 
