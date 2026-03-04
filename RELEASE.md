@@ -21,12 +21,12 @@
 
 1. Commit release changes.
 2. Create and push a version tag:
-   - `git tag v0.1.0`
-   - `git push origin v0.1.0`
+   - `git tag v0.2.1`
+   - `git push origin v0.2.1`
 3. Wait for `Publish` workflow to complete.
 4. Verify package on PyPI.
 
 ## Rollback
 
 - If publish fails before package release: fix and tag next patch version.
-- If package is published with issues: ship a patch release (`0.1.1`).
+- If package is published with issues: ship a patch release (`0.2.2`).

@@ -2,6 +2,12 @@
 
 `tokvera` is a lightweight Python SDK that wraps OpenAI, Anthropic, and Gemini clients and emits usage analytics in a fire-and-forget way.
 
+## What's New in v0.2.1
+
+- Added Trace Context v1 tags.
+- New optional tags: `trace_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`.
+- Auto-generates `trace_id` and `span_id` when you do not provide them.
+
 ## Installation
 
 ```bash
@@ -27,6 +33,33 @@ $env:TOKVERA_INGEST_URL = "https://api.tokvera.com/v1/events"
 ```
 
 If `TOKVERA_INGEST_URL` is not set, analytics are skipped automatically.
+
+## Trace Context v1
+
+Use trace tags to reconstruct request chains without sending prompt payloads.
+
+Recommended semantics:
+- `trace_id`: one end-to-end workflow/request.
+- `conversation_id`: one user conversation/session.
+- `span_id`: one model call.
+- `parent_span_id`: parent model call when nested.
+- `step_name`: readable stage label (`retrieve_context`, `draft_reply`, `quality_retry`).
+
+Example:
+
+```python
+client = track_openai(
+    openai_client,
+    api_key="tokvera_project_key",
+    feature="support_bot",
+    tenant_id="acme",
+    trace_id="trace_req_20260304_001",
+    conversation_id="conv_9832",
+    span_id="span_root_1",
+    parent_span_id=None,
+    step_name="draft_reply",
+)
+```
 
 ## Quick Start
 
