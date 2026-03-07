@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2026-03-07
+
+### Changed
+- Ingestion now treats non-2xx API responses as failed deliveries instead of silently succeeding.
+- Added retry classification for transient HTTP responses (`408`, `409`, `425`, `429`, `5xx`).
+- Async ingestion now emits runtime warnings with HTTP status/details when final delivery fails.
+- Updated SDK user-agent string to `tokvera-python-sdk/0.2.3`.
+
+### Added
+- New ingest-focused tests covering retryable/non-retryable HTTP failures and async warning behavior.
+
 ## [0.2.2] - 2026-03-07
 
 ### Added
