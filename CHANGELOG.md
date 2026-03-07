@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2026-03-07
+
+### Added
+- FastAPI middleware integration helpers:
+  - `create_fastapi_tracking_middleware(...)`
+  - `get_fastapi_request_context()`
+  - `get_fastapi_track_kwargs(...)`
+- LangChain callback integration helpers:
+  - `TokveraLangChainCallbackHandler`
+  - `create_langchain_callback_handler(...)`
+- LlamaIndex callback integration helpers:
+  - `TokveraLlamaIndexCallbackHandler`
+  - `create_llamaindex_callback_handler(...)`
+- Evaluation Signals v1 support in tags and top-level `evaluation` payload fields.
+
+### Changed
+- Expanded integration test coverage for framework callbacks and request middleware context propagation.
+
 ## [0.2.1] - 2026-03-04
 
 ### Added

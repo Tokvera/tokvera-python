@@ -2,11 +2,14 @@
 
 `tokvera` is a lightweight Python SDK that wraps OpenAI, Anthropic, and Gemini clients and emits usage analytics in a fire-and-forget way.
 
-## What's New in v0.2.1
+## What's New in v0.2.2
 
 - Added Trace Context v1 tags.
 - New optional tags: `trace_id`, `run_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`.
 - Added Evaluation Signals v1 fields: `outcome`, `retry_reason`, `fallback_reason`, `quality_label`, `feedback_score`.
+- Added FastAPI middleware integration helpers.
+- Added LangChain callback integration helpers.
+- Added LlamaIndex callback integration helpers.
 - Auto-generates `trace_id` and `span_id` when you do not provide them.
 
 ## Installation
