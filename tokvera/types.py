@@ -22,6 +22,11 @@ class TrackingContext:
     span_id: Optional[str] = None
     parent_span_id: Optional[str] = None
     step_name: Optional[str] = None
+    outcome: Optional[str] = None
+    retry_reason: Optional[str] = None
+    fallback_reason: Optional[str] = None
+    quality_label: Optional[str] = None
+    feedback_score: Optional[float] = None
     capture_content: bool = False
 
 
@@ -62,6 +67,11 @@ class AnalyticsEvent:
     span_id: Optional[str]
     parent_span_id: Optional[str]
     step_name: Optional[str]
+    outcome: Optional[str]
+    retry_reason: Optional[str]
+    fallback_reason: Optional[str]
+    quality_label: Optional[str]
+    feedback_score: Optional[float]
     prompt_hash: Optional[str] = None
     response_hash: Optional[str] = None
     error: Optional[EventError] = None
@@ -95,8 +105,31 @@ class AnalyticsEvent:
                 "span_id": self.span_id,
                 "parent_span_id": self.parent_span_id,
                 "step_name": self.step_name,
+                "outcome": self.outcome,
+                "retry_reason": self.retry_reason,
+                "fallback_reason": self.fallback_reason,
+                "quality_label": self.quality_label,
+                "feedback_score": self.feedback_score,
             },
         }
+
+        if any(
+            value is not None
+            for value in (
+                self.outcome,
+                self.retry_reason,
+                self.fallback_reason,
+                self.quality_label,
+                self.feedback_score,
+            )
+        ):
+            payload["evaluation"] = {
+                "outcome": self.outcome,
+                "retry_reason": self.retry_reason,
+                "fallback_reason": self.fallback_reason,
+                "quality_label": self.quality_label,
+                "feedback_score": self.feedback_score,
+            }
 
         if self.prompt_hash is not None:
             payload["prompt_hash"] = self.prompt_hash

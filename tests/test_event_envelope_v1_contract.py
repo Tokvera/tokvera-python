@@ -151,6 +151,11 @@ def test_event_envelope_v1_openai_trace_tags(monkeypatch: pytest.MonkeyPatch) ->
         parent_span_id="spn_parent_1",
         conversation_id="conv_contract_1",
         step_name="draft_reply",
+        outcome="failure",
+        retry_reason="timeout",
+        fallback_reason="model_downgrade",
+        quality_label="poor",
+        feedback_score=2,
     )
 
     client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}])
@@ -168,6 +173,16 @@ def test_event_envelope_v1_openai_trace_tags(monkeypatch: pytest.MonkeyPatch) ->
     assert event["tags"]["parent_span_id"] == "spn_parent_1"
     assert event["tags"]["conversation_id"] == "conv_contract_1"
     assert event["tags"]["step_name"] == "draft_reply"
+    assert event["tags"]["outcome"] == "failure"
+    assert event["tags"]["retry_reason"] == "timeout"
+    assert event["tags"]["fallback_reason"] == "model_downgrade"
+    assert event["tags"]["quality_label"] == "poor"
+    assert event["tags"]["feedback_score"] == 2
+    assert event["evaluation"]["outcome"] == "failure"
+    assert event["evaluation"]["retry_reason"] == "timeout"
+    assert event["evaluation"]["fallback_reason"] == "model_downgrade"
+    assert event["evaluation"]["quality_label"] == "poor"
+    assert event["evaluation"]["feedback_score"] == 2
 
 
 def test_event_envelope_v1_anthropic_normalization(monkeypatch: pytest.MonkeyPatch) -> None:

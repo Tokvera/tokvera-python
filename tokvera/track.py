@@ -28,6 +28,11 @@ def track_openai(
     span_id: Optional[str] = None,
     parent_span_id: Optional[str] = None,
     step_name: Optional[str] = None,
+    outcome: Optional[str] = None,
+    retry_reason: Optional[str] = None,
+    fallback_reason: Optional[str] = None,
+    quality_label: Optional[str] = None,
+    feedback_score: Optional[float] = None,
     capture_content: bool = False,
 ) -> Any:
     context = TrackingContext(
@@ -45,6 +50,11 @@ def track_openai(
         span_id=span_id,
         parent_span_id=parent_span_id,
         step_name=step_name,
+        outcome=outcome,
+        retry_reason=retry_reason,
+        fallback_reason=fallback_reason,
+        quality_label=quality_label,
+        feedback_score=feedback_score,
         capture_content=capture_content,
     )
 
@@ -68,6 +78,11 @@ def track_anthropic(
     span_id: Optional[str] = None,
     parent_span_id: Optional[str] = None,
     step_name: Optional[str] = None,
+    outcome: Optional[str] = None,
+    retry_reason: Optional[str] = None,
+    fallback_reason: Optional[str] = None,
+    quality_label: Optional[str] = None,
+    feedback_score: Optional[float] = None,
     capture_content: bool = False,
 ) -> Any:
     context = TrackingContext(
@@ -85,6 +100,11 @@ def track_anthropic(
         span_id=span_id,
         parent_span_id=parent_span_id,
         step_name=step_name,
+        outcome=outcome,
+        retry_reason=retry_reason,
+        fallback_reason=fallback_reason,
+        quality_label=quality_label,
+        feedback_score=feedback_score,
         capture_content=capture_content,
     )
 
@@ -108,6 +128,11 @@ def track_gemini(
     span_id: Optional[str] = None,
     parent_span_id: Optional[str] = None,
     step_name: Optional[str] = None,
+    outcome: Optional[str] = None,
+    retry_reason: Optional[str] = None,
+    fallback_reason: Optional[str] = None,
+    quality_label: Optional[str] = None,
+    feedback_score: Optional[float] = None,
     capture_content: bool = False,
 ) -> Any:
     context = TrackingContext(
@@ -125,6 +150,11 @@ def track_gemini(
         span_id=span_id,
         parent_span_id=parent_span_id,
         step_name=step_name,
+        outcome=outcome,
+        retry_reason=retry_reason,
+        fallback_reason=fallback_reason,
+        quality_label=quality_label,
+        feedback_score=feedback_score,
         capture_content=capture_content,
     )
 
@@ -376,6 +406,11 @@ def _build_event(
         span_id=span_id,
         parent_span_id=context.parent_span_id,
         step_name=context.step_name,
+        outcome=context.outcome,
+        retry_reason=context.retry_reason,
+        fallback_reason=context.fallback_reason,
+        quality_label=context.quality_label,
+        feedback_score=context.feedback_score,
         prompt_hash=prompt_hash,
         response_hash=response_hash,
         error=event_error,

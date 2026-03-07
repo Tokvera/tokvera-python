@@ -121,6 +121,11 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
         conversation_id="conv_88",
         parent_span_id="spn_parent_01",
         step_name="draft_reply",
+        outcome="success",
+        retry_reason="none",
+        fallback_reason="none",
+        quality_label="good",
+        feedback_score=4.5,
         plan="pro",
         environment="production",
         template_id="support_v3",
@@ -148,6 +153,13 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
     assert emitted[0]["tags"]["conversation_id"] == "conv_88"
     assert emitted[0]["tags"]["parent_span_id"] == "spn_parent_01"
     assert emitted[0]["tags"]["step_name"] == "draft_reply"
+    assert emitted[0]["tags"]["outcome"] == "success"
+    assert emitted[0]["tags"]["retry_reason"] == "none"
+    assert emitted[0]["tags"]["fallback_reason"] == "none"
+    assert emitted[0]["tags"]["quality_label"] == "good"
+    assert emitted[0]["tags"]["feedback_score"] == 4.5
+    assert emitted[0]["evaluation"]["outcome"] == "success"
+    assert emitted[0]["evaluation"]["feedback_score"] == 4.5
     assert isinstance(emitted[0]["tags"]["span_id"], str)
     assert len(emitted[0]["tags"]["span_id"]) > 0
 
