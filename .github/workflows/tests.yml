@@ -31,3 +31,7 @@ jobs:
 
       - name: Event envelope v1 compatibility
         run: python -m pytest tests/test_event_envelope_v1_contract.py
+
+      - name: Canonical schema contract drift check
+        if: matrix.python-version == '3.12'
+        run: python scripts/check_canonical_contract.py
