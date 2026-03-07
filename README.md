@@ -64,6 +64,44 @@ client = track_openai(
 )
 ```
 
+## FastAPI Middleware Integration
+
+Use middleware to create request-level trace context and pass it into SDK calls.
+
+```python
+from fastapi import FastAPI, Request
+from openai import OpenAI
+from tokvera import (
+    create_fastapi_tracking_middleware,
+    get_fastapi_track_kwargs,
+    track_openai,
+)
+
+app = FastAPI()
+openai_client = OpenAI(api_key="sk-...")
+
+middleware = create_fastapi_tracking_middleware(
+    defaults={"feature": "support_bot", "environment": "production"},
+    context_resolver=lambda request: {"tenant_id": request.headers.get("x-tenant-id")},
+)
+
+@app.middleware("http")
+async def tokvera_context(request: Request, call_next):
+    return await middleware(request, call_next)
+
+@app.post("/reply")
+async def reply():
+    tracked = track_openai(
+        openai_client,
+        api_key="tokvera_project_key",
+        **get_fastapi_track_kwargs(step_name="draft_reply"),
+    )
+    return tracked.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+```
+
 ## Quick Start
 
 ### OpenAI
