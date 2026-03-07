@@ -125,6 +125,24 @@ model = ChatOpenAI(
 result = model.invoke("Hello")
 ```
 
+## LlamaIndex Callback Integration
+
+Use a callback handler to emit Tokvera events from LlamaIndex workflows.
+
+```python
+from llama_index.core.callbacks import CallbackManager
+from tokvera import create_llamaindex_callback_handler
+
+tokvera_handler = create_llamaindex_callback_handler(
+    api_key="tokvera_project_key",
+    feature="agent_support",
+    tenant_id="acme",
+    environment="production",
+)
+
+callback_manager = CallbackManager([tokvera_handler])
+```
+
 ## Quick Start
 
 ### OpenAI

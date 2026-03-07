@@ -7,6 +7,10 @@ from .langchain import (
     TokveraLangChainCallbackHandler,
     create_langchain_callback_handler,
 )
+from .llamaindex import (
+    TokveraLlamaIndexCallbackHandler,
+    create_llamaindex_callback_handler,
+)
 
 __all__ = [
     "create_fastapi_tracking_middleware",
@@ -14,4 +18,6 @@ __all__ = [
     "get_fastapi_track_kwargs",
     "TokveraLangChainCallbackHandler",
     "create_langchain_callback_handler",
+    "TokveraLlamaIndexCallbackHandler",
+    "create_llamaindex_callback_handler",
 ]
