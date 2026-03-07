@@ -5,7 +5,7 @@
 ## What's New in v0.2.1
 
 - Added Trace Context v1 tags.
-- New optional tags: `trace_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`.
+- New optional tags: `trace_id`, `run_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`.
 - Auto-generates `trace_id` and `span_id` when you do not provide them.
 
 ## Installation
@@ -40,6 +40,7 @@ Use trace tags to reconstruct request chains without sending prompt payloads.
 
 Recommended semantics:
 - `trace_id`: one end-to-end workflow/request.
+- `run_id`: one execution run of an agent/workflow.
 - `conversation_id`: one user conversation/session.
 - `span_id`: one model call.
 - `parent_span_id`: parent model call when nested.
@@ -54,6 +55,7 @@ client = track_openai(
     feature="support_bot",
     tenant_id="acme",
     trace_id="trace_req_20260304_001",
+    run_id="run_agent_20260304_001",
     conversation_id="conv_9832",
     span_id="span_root_1",
     parent_span_id=None,
@@ -77,6 +79,7 @@ client = track_openai(
     feature="support_bot",
     tenant_id="acme",
     trace_id="trace_support_001",
+    run_id="run_support_001",
     conversation_id="conv_42",
     step_name="draft_reply",
     plan="pro",
@@ -149,7 +152,7 @@ Events include:
 - `latency_ms`
 - `model`
 - `usage`: `prompt_tokens`, `completion_tokens`, `total_tokens`
-- `tags`: `feature`, `tenant_id`, `customer_id`, `attempt_type`, `plan`, `environment`, `template_id`, `trace_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`
+- `tags`: `feature`, `tenant_id`, `customer_id`, `attempt_type`, `plan`, `environment`, `template_id`, `trace_id`, `run_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`
 - `error` on failure events
 
 `trace_id` and `span_id` are auto-generated per request if not provided.

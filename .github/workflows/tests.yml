@@ -28,3 +28,6 @@ jobs:
 
       - name: Run tests
         run: python -m pytest
+
+      - name: Event envelope v1 compatibility
+        run: python -m pytest tests/test_event_envelope_v1_contract.py

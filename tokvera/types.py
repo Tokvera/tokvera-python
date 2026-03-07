@@ -17,6 +17,7 @@ class TrackingContext:
     environment: Optional[str] = None
     template_id: Optional[str] = None
     trace_id: Optional[str] = None
+    run_id: Optional[str] = None
     conversation_id: Optional[str] = None
     span_id: Optional[str] = None
     parent_span_id: Optional[str] = None
@@ -56,6 +57,7 @@ class AnalyticsEvent:
     environment: Optional[str]
     template_id: Optional[str]
     trace_id: Optional[str]
+    run_id: Optional[str]
     conversation_id: Optional[str]
     span_id: Optional[str]
     parent_span_id: Optional[str]
@@ -88,6 +90,7 @@ class AnalyticsEvent:
                 "environment": self.environment,
                 "template_id": self.template_id,
                 "trace_id": self.trace_id,
+                "run_id": self.run_id,
                 "conversation_id": self.conversation_id,
                 "span_id": self.span_id,
                 "parent_span_id": self.parent_span_id,

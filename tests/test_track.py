@@ -117,6 +117,7 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
         tenant_id="acme",
         attempt_type="regenerate",
         trace_id="trace_support_123",
+        run_id="run_support_123",
         conversation_id="conv_88",
         parent_span_id="spn_parent_01",
         step_name="draft_reply",
@@ -143,6 +144,7 @@ def test_chat_wrapper_returns_original_object_and_triggers_ingest(monkeypatch: p
     assert emitted[0]["tags"]["tenant_id"] == "acme"
     assert emitted[0]["tags"]["attempt_type"] == "regenerate"
     assert emitted[0]["tags"]["trace_id"] == "trace_support_123"
+    assert emitted[0]["tags"]["run_id"] == "run_support_123"
     assert emitted[0]["tags"]["conversation_id"] == "conv_88"
     assert emitted[0]["tags"]["parent_span_id"] == "spn_parent_01"
     assert emitted[0]["tags"]["step_name"] == "draft_reply"
