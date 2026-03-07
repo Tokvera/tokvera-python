@@ -102,6 +102,29 @@ async def reply():
     )
 ```
 
+## LangChain Callback Integration
+
+Use a callback handler to emit Tokvera events from LangChain LLM runs.
+
+```python
+from langchain_openai import ChatOpenAI
+from tokvera import create_langchain_callback_handler
+
+callback = create_langchain_callback_handler(
+    api_key="tokvera_project_key",
+    feature="agent_support",
+    tenant_id="acme",
+    environment="production",
+)
+
+model = ChatOpenAI(
+    model="gpt-4o-mini",
+    callbacks=[callback],
+)
+
+result = model.invoke("Hello")
+```
+
 ## Quick Start
 
 ### OpenAI

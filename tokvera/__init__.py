@@ -1,6 +1,8 @@
 from .track import track_anthropic, track_gemini, track_openai
 from .integrations import (
+    TokveraLangChainCallbackHandler,
     create_fastapi_tracking_middleware,
+    create_langchain_callback_handler,
     get_fastapi_request_context,
     get_fastapi_track_kwargs,
 )
@@ -12,4 +14,6 @@ __all__ = [
     "create_fastapi_tracking_middleware",
     "get_fastapi_request_context",
     "get_fastapi_track_kwargs",
+    "TokveraLangChainCallbackHandler",
+    "create_langchain_callback_handler",
 ]
