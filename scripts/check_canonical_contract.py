@@ -23,6 +23,7 @@ EXPECTED = {
         "usage",
         "tags",
     ],
+    "optional_top_level_fields": ["prompt_hash", "response_hash", "error", "evaluation"],
     "status_values": ["success", "failure"],
     "provider_contracts": {
         "openai": {
@@ -39,6 +40,26 @@ EXPECTED = {
         },
     },
     "usage_fields": ["prompt_tokens", "completion_tokens", "total_tokens"],
+    "allowed_tag_fields": [
+        "feature",
+        "tenant_id",
+        "customer_id",
+        "attempt_type",
+        "plan",
+        "environment",
+        "template_id",
+        "trace_id",
+        "run_id",
+        "conversation_id",
+        "span_id",
+        "parent_span_id",
+        "step_name",
+        "outcome",
+        "retry_reason",
+        "fallback_reason",
+        "quality_label",
+        "feedback_score",
+    ],
     "evaluation_fields": [
         "outcome",
         "retry_reason",
@@ -46,6 +67,12 @@ EXPECTED = {
         "quality_label",
         "feedback_score",
     ],
+    "compatibility_policy": {
+        "additive_optional_fields": True,
+        "required_fields_require_schema_bump": True,
+        "semantic_changes_require_schema_bump": True,
+        "deprecations_require_staged_rollout": True,
+    },
 }
 
 
@@ -91,9 +118,32 @@ def main() -> None:
     assert_equal(schema.get("envelope_version"), EXPECTED["envelope_version"], "envelope_version")
     assert_equal(schema.get("schema_version"), EXPECTED["schema_version"], "schema_version")
     assert_set_equal(schema.get("required_top_level_fields", []), EXPECTED["required_top_level_fields"], "required_top_level_fields")
+    assert_set_equal(schema.get("optional_top_level_fields", []), EXPECTED["optional_top_level_fields"], "optional_top_level_fields")
     assert_set_equal(schema.get("status_values", []), EXPECTED["status_values"], "status_values")
     assert_set_equal(schema.get("usage_fields", []), EXPECTED["usage_fields"], "usage_fields")
+    assert_set_equal(schema.get("allowed_tag_fields", []), EXPECTED["allowed_tag_fields"], "allowed_tag_fields")
     assert_set_equal(schema.get("evaluation_fields", []), EXPECTED["evaluation_fields"], "evaluation_fields")
+    compatibility_policy = schema.get("compatibility_policy", {})
+    assert_equal(
+        bool(compatibility_policy.get("additive_optional_fields")),
+        EXPECTED["compatibility_policy"]["additive_optional_fields"],
+        "compatibility_policy.additive_optional_fields",
+    )
+    assert_equal(
+        bool(compatibility_policy.get("required_fields_require_schema_bump")),
+        EXPECTED["compatibility_policy"]["required_fields_require_schema_bump"],
+        "compatibility_policy.required_fields_require_schema_bump",
+    )
+    assert_equal(
+        bool(compatibility_policy.get("semantic_changes_require_schema_bump")),
+        EXPECTED["compatibility_policy"]["semantic_changes_require_schema_bump"],
+        "compatibility_policy.semantic_changes_require_schema_bump",
+    )
+    assert_equal(
+        bool(compatibility_policy.get("deprecations_require_staged_rollout")),
+        EXPECTED["compatibility_policy"]["deprecations_require_staged_rollout"],
+        "compatibility_policy.deprecations_require_staged_rollout",
+    )
 
     provider_contracts = schema.get("provider_contracts", {})
     for provider, expected_contract in EXPECTED["provider_contracts"].items():
