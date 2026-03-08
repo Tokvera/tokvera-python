@@ -7,6 +7,52 @@ import pytest
 
 from tokvera.track import track_anthropic, track_gemini, track_openai
 
+ALLOWED_TOP_LEVEL_FIELDS = {
+    "schema_version",
+    "event_type",
+    "provider",
+    "endpoint",
+    "status",
+    "timestamp",
+    "latency_ms",
+    "model",
+    "usage",
+    "tags",
+    "prompt_hash",
+    "response_hash",
+    "error",
+    "evaluation",
+}
+ALLOWED_USAGE_FIELDS = {"prompt_tokens", "completion_tokens", "total_tokens"}
+ALLOWED_TAG_FIELDS = {
+    "feature",
+    "tenant_id",
+    "customer_id",
+    "attempt_type",
+    "plan",
+    "environment",
+    "template_id",
+    "trace_id",
+    "run_id",
+    "conversation_id",
+    "span_id",
+    "parent_span_id",
+    "step_name",
+    "outcome",
+    "retry_reason",
+    "fallback_reason",
+    "quality_label",
+    "feedback_score",
+}
+ALLOWED_EVALUATION_FIELDS = {
+    "outcome",
+    "retry_reason",
+    "fallback_reason",
+    "quality_label",
+    "feedback_score",
+}
+ALLOWED_ERROR_FIELDS = {"type", "message"}
+
 
 @dataclass
 class _OpenAIUsage:
@@ -125,11 +171,30 @@ def _assert_canonical_envelope_v1(
     assert usage["completion_tokens"] >= 0
     assert usage["total_tokens"] >= 0
 
+    unknown_top_level = [field for field in event.keys() if field not in ALLOWED_TOP_LEVEL_FIELDS]
+    assert not unknown_top_level, f"unknown top-level fields: {unknown_top_level}"
+
+    unknown_usage = [field for field in usage.keys() if field not in ALLOWED_USAGE_FIELDS]
+    assert not unknown_usage, f"unknown usage fields: {unknown_usage}"
+
     tags = event["tags"]
     assert isinstance(tags["trace_id"], str)
     assert len(tags["trace_id"]) > 0
     assert isinstance(tags["span_id"], str)
     assert len(tags["span_id"]) > 0
+
+    unknown_tags = [field for field in tags.keys() if field not in ALLOWED_TAG_FIELDS]
+    assert not unknown_tags, f"unknown tag fields: {unknown_tags}"
+
+    evaluation = event.get("evaluation")
+    if isinstance(evaluation, dict):
+        unknown_evaluation = [field for field in evaluation.keys() if field not in ALLOWED_EVALUATION_FIELDS]
+        assert not unknown_evaluation, f"unknown evaluation fields: {unknown_evaluation}"
+
+    error = event.get("error")
+    if isinstance(error, dict):
+        unknown_error = [field for field in error.keys() if field not in ALLOWED_ERROR_FIELDS]
+        assert not unknown_error, f"unknown error fields: {unknown_error}"
 
 
 def test_event_envelope_v1_openai_trace_tags(monkeypatch: pytest.MonkeyPatch) -> None:

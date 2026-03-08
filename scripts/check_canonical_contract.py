@@ -24,6 +24,24 @@ EXPECTED = {
         "tags",
     ],
     "optional_top_level_fields": ["prompt_hash", "response_hash", "error", "evaluation"],
+    "strict_validation": {
+        "allow_unknown_top_level_fields": False,
+        "allow_unknown_usage_fields": False,
+        "allow_unknown_tag_fields": False,
+        "allow_unknown_evaluation_fields": False,
+        "allow_unknown_error_fields": False,
+    },
+    "validation_error_codes": [
+        "MISSING_FIELD",
+        "UNSUPPORTED_VERSION",
+        "UNSUPPORTED_EVENT_TYPE",
+        "INVALID_SCHEMA",
+        "UNKNOWN_TOP_LEVEL_FIELD",
+        "UNKNOWN_USAGE_FIELD",
+        "UNKNOWN_TAG_FIELD",
+        "UNKNOWN_EVALUATION_FIELD",
+        "UNKNOWN_ERROR_FIELD",
+    ],
     "status_values": ["success", "failure"],
     "provider_contracts": {
         "openai": {
@@ -40,6 +58,7 @@ EXPECTED = {
         },
     },
     "usage_fields": ["prompt_tokens", "completion_tokens", "total_tokens"],
+    "error_fields": ["type", "message"],
     "allowed_tag_fields": [
         "feature",
         "tenant_id",
@@ -144,6 +163,46 @@ def main() -> None:
         EXPECTED["compatibility_policy"]["deprecations_require_staged_rollout"],
         "compatibility_policy.deprecations_require_staged_rollout",
     )
+
+    strict_validation = schema.get("strict_validation")
+    if isinstance(strict_validation, dict):
+        assert_equal(
+            bool(strict_validation.get("allow_unknown_top_level_fields")),
+            EXPECTED["strict_validation"]["allow_unknown_top_level_fields"],
+            "strict_validation.allow_unknown_top_level_fields",
+        )
+        assert_equal(
+            bool(strict_validation.get("allow_unknown_usage_fields")),
+            EXPECTED["strict_validation"]["allow_unknown_usage_fields"],
+            "strict_validation.allow_unknown_usage_fields",
+        )
+        assert_equal(
+            bool(strict_validation.get("allow_unknown_tag_fields")),
+            EXPECTED["strict_validation"]["allow_unknown_tag_fields"],
+            "strict_validation.allow_unknown_tag_fields",
+        )
+        assert_equal(
+            bool(strict_validation.get("allow_unknown_evaluation_fields")),
+            EXPECTED["strict_validation"]["allow_unknown_evaluation_fields"],
+            "strict_validation.allow_unknown_evaluation_fields",
+        )
+        assert_equal(
+            bool(strict_validation.get("allow_unknown_error_fields")),
+            EXPECTED["strict_validation"]["allow_unknown_error_fields"],
+            "strict_validation.allow_unknown_error_fields",
+        )
+
+    validation_error_codes = schema.get("validation_error_codes")
+    if isinstance(validation_error_codes, list):
+        assert_set_equal(
+            validation_error_codes,
+            EXPECTED["validation_error_codes"],
+            "validation_error_codes",
+        )
+
+    error_fields = schema.get("error_fields")
+    if isinstance(error_fields, list):
+        assert_set_equal(error_fields, EXPECTED["error_fields"], "error_fields")
 
     provider_contracts = schema.get("provider_contracts", {})
     for provider, expected_contract in EXPECTED["provider_contracts"].items():
