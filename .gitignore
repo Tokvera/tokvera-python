@@ -3,3 +3,8 @@
 pytest-cache-files-*/
 __pycache__/
 *.py[cod]
+.venv/
+dist/
+dist-*/
+release-dist-*/
+uv.lock

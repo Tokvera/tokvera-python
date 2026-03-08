@@ -30,10 +30,10 @@ Set your ingestion endpoint:
 
 ```bash
 # Linux/macOS
-export TOKVERA_INGEST_URL="https://api.tokvera.com/v1/events"
+export TOKVERA_INGEST_URL="https://api.tokvera.org/v1/events"
 
 # Windows PowerShell
-$env:TOKVERA_INGEST_URL = "https://api.tokvera.com/v1/events"
+$env:TOKVERA_INGEST_URL = "https://api.tokvera.org/v1/events"
 ```
 
 If `TOKVERA_INGEST_URL` is not set, analytics are skipped automatically.
@@ -145,6 +145,10 @@ tokvera_handler = create_llamaindex_callback_handler(
 
 callback_manager = CallbackManager([tokvera_handler])
 ```
+
+## Examples
+
+- `examples/fastapi_middleware.py`: request-scoped trace context with FastAPI.
 
 ## Quick Start
 
