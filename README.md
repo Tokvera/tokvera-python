@@ -105,6 +105,39 @@ async def reply():
     )
 ```
 
+## Background Job Integration
+
+Use helpers to keep `trace_id` and `run_id` stable across async worker steps while emitting child spans per step.
+
+```python
+from openai import OpenAI
+from tokvera import (
+    create_background_job_context,
+    get_background_track_kwargs,
+    track_openai,
+)
+
+openai_client = OpenAI(api_key="sk-...")
+
+job_context = create_background_job_context(
+    job_id="job_daily_summary_001",
+    feature="daily_summary",
+    tenant_id="acme",
+    environment="production",
+)
+
+tracked = track_openai(
+    openai_client,
+    api_key="tokvera_project_key",
+    **get_background_track_kwargs(job_context, step_name="generate_summary"),
+)
+
+tracked.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[{"role": "user", "content": "Summarize yesterday incidents."}],
+)
+```
+
 ## LangChain Callback Integration
 
 Use a callback handler to emit Tokvera events from LangChain LLM runs.
@@ -149,6 +182,7 @@ callback_manager = CallbackManager([tokvera_handler])
 ## Examples
 
 - `examples/fastapi_middleware.py`: request-scoped trace context with FastAPI.
+- `examples/background_jobs.py`: background worker/job trace propagation.
 
 ## Quick Start
 
