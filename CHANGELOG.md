@@ -2,13 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.2.4] - 2026-03-08
 
 ### Added
 - Background job instrumentation helpers:
   - `create_background_job_context(...)`
   - `get_background_track_kwargs(...)`
 - Background worker example for stable trace/run propagation across async steps.
+
+### Changed
+- Updated SDK user-agent string to `tokvera-python-sdk/0.2.4`.
 
 ## [0.2.3] - 2026-03-07
 
