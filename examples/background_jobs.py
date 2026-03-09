@@ -19,6 +19,9 @@ def run_job() -> None:
     tracked = track_openai(
         openai_client,
         api_key="tokvera_project_key",
+        schema_version="2026-04-01",
+        span_kind="orchestrator",
+        routing_reason="background_job",
         **get_background_track_kwargs(
             job_context,
             step_name="summarize_incidents",
@@ -33,4 +36,3 @@ def run_job() -> None:
 
 if __name__ == "__main__":
     run_job()
-

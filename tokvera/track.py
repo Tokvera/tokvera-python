@@ -8,7 +8,20 @@ import uuid
 from typing import Any, Callable, Optional, Sequence
 
 from .ingest import ingest_event_async
-from .types import AnalyticsEvent, EventError, TrackingContext, UsageMetrics
+from .types import (
+    AnalyticsEvent,
+    EventError,
+    TraceDecision,
+    TraceMetrics,
+    TracePayloadBlock,
+    TrackingContext,
+    UsageMetrics,
+)
+
+TRACE_SCHEMA_VERSION_V1 = "2026-02-16"
+TRACE_SCHEMA_VERSION_V2 = "2026-04-01"
+ALLOWED_SPAN_KINDS = {"model", "tool", "orchestrator", "retrieval", "guardrail"}
+ALLOWED_PAYLOAD_TYPES = {"prompt_input", "tool_input", "tool_output", "model_output", "context", "other"}
 
 
 def track_openai(
@@ -34,6 +47,15 @@ def track_openai(
     quality_label: Optional[str] = None,
     feedback_score: Optional[float] = None,
     capture_content: bool = False,
+    schema_version: Optional[str] = None,
+    span_kind: Optional[str] = None,
+    tool_name: Optional[str] = None,
+    payload_refs: Optional[list[str]] = None,
+    payload_blocks: Optional[list[dict[str, Any]]] = None,
+    metrics: Optional[dict[str, Any]] = None,
+    decision: Optional[dict[str, Any]] = None,
+    routing_reason: Optional[str] = None,
+    route: Optional[str] = None,
 ) -> Any:
     context = TrackingContext(
         api_key=api_key,
@@ -56,6 +78,15 @@ def track_openai(
         quality_label=quality_label,
         feedback_score=feedback_score,
         capture_content=capture_content,
+        schema_version=schema_version,
+        span_kind=span_kind if isinstance(span_kind, str) else None,
+        tool_name=tool_name,
+        payload_refs=[value for value in (payload_refs or []) if isinstance(value, str) and value.strip()],
+        payload_blocks=_normalize_payload_blocks(payload_blocks),
+        metrics=_normalize_metrics(metrics),
+        decision=_normalize_decision(decision),
+        routing_reason=routing_reason,
+        route=route,
     )
 
     return _TrackedOpenAIClient(openai_client, context)
@@ -84,6 +115,15 @@ def track_anthropic(
     quality_label: Optional[str] = None,
     feedback_score: Optional[float] = None,
     capture_content: bool = False,
+    schema_version: Optional[str] = None,
+    span_kind: Optional[str] = None,
+    tool_name: Optional[str] = None,
+    payload_refs: Optional[list[str]] = None,
+    payload_blocks: Optional[list[dict[str, Any]]] = None,
+    metrics: Optional[dict[str, Any]] = None,
+    decision: Optional[dict[str, Any]] = None,
+    routing_reason: Optional[str] = None,
+    route: Optional[str] = None,
 ) -> Any:
     context = TrackingContext(
         api_key=api_key,
@@ -106,6 +146,15 @@ def track_anthropic(
         quality_label=quality_label,
         feedback_score=feedback_score,
         capture_content=capture_content,
+        schema_version=schema_version,
+        span_kind=span_kind if isinstance(span_kind, str) else None,
+        tool_name=tool_name,
+        payload_refs=[value for value in (payload_refs or []) if isinstance(value, str) and value.strip()],
+        payload_blocks=_normalize_payload_blocks(payload_blocks),
+        metrics=_normalize_metrics(metrics),
+        decision=_normalize_decision(decision),
+        routing_reason=routing_reason,
+        route=route,
     )
 
     return _TrackedAnthropicClient(anthropic_client, context)
@@ -134,6 +183,15 @@ def track_gemini(
     quality_label: Optional[str] = None,
     feedback_score: Optional[float] = None,
     capture_content: bool = False,
+    schema_version: Optional[str] = None,
+    span_kind: Optional[str] = None,
+    tool_name: Optional[str] = None,
+    payload_refs: Optional[list[str]] = None,
+    payload_blocks: Optional[list[dict[str, Any]]] = None,
+    metrics: Optional[dict[str, Any]] = None,
+    decision: Optional[dict[str, Any]] = None,
+    routing_reason: Optional[str] = None,
+    route: Optional[str] = None,
 ) -> Any:
     context = TrackingContext(
         api_key=api_key,
@@ -156,6 +214,15 @@ def track_gemini(
         quality_label=quality_label,
         feedback_score=feedback_score,
         capture_content=capture_content,
+        schema_version=schema_version,
+        span_kind=span_kind if isinstance(span_kind, str) else None,
+        tool_name=tool_name,
+        payload_refs=[value for value in (payload_refs or []) if isinstance(value, str) and value.strip()],
+        payload_blocks=_normalize_payload_blocks(payload_blocks),
+        metrics=_normalize_metrics(metrics),
+        decision=_normalize_decision(decision),
+        routing_reason=routing_reason,
+        route=route,
     )
 
     return _TrackedGeminiClient(gemini_client, context)
@@ -369,12 +436,13 @@ def _build_event(
     response: Any,
     error: Optional[Exception],
 ) -> AnalyticsEvent:
+    prompt_content = _extract_prompt_like(kwargs)
+    response_content = _extract_response_content(response)
     prompt_hash: Optional[str] = None
     response_hash: Optional[str] = None
-
     if context.capture_content:
-        prompt_hash = _hash_content(_extract_prompt_like(kwargs))
-        response_hash = _hash_content(_extract_response_content(response))
+        prompt_hash = _hash_content(prompt_content)
+        response_hash = _hash_content(response_content)
 
     event_error = None
     if error is not None:
@@ -382,9 +450,38 @@ def _build_event(
 
     trace_id = context.trace_id or _new_id("trc")
     span_id = context.span_id or _new_id("spn")
+    explicit_schema = _normalize_schema_version(context.schema_version)
+    span_kind = _normalize_span_kind(context.span_kind)
+    tool_name = _normalize_non_empty_string(context.tool_name)
+    payload_refs = _normalize_payload_refs(context.payload_refs)
+    payload_blocks = _normalize_payload_blocks(context.payload_blocks)
+    if context.capture_content:
+        payload_blocks = _append_content_payload_blocks(payload_blocks, prompt_content, response_content)
+    decision = _build_trace_decision(context)
+    metrics = context.metrics or _normalize_metrics({})
+    if metrics is None:
+        metrics = TraceMetrics()
+    metrics = TraceMetrics(
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        latency_ms=latency_ms,
+        cost_usd=metrics.cost_usd,
+    )
+
+    should_use_v2 = (
+        explicit_schema == TRACE_SCHEMA_VERSION_V2
+        or span_kind is not None
+        or tool_name is not None
+        or bool(payload_refs)
+        or bool(payload_blocks)
+        or decision is not None
+        or context.metrics is not None
+    )
+    schema_version = TRACE_SCHEMA_VERSION_V2 if should_use_v2 else TRACE_SCHEMA_VERSION_V1
 
     return AnalyticsEvent(
-        schema_version="2026-02-16",
+        schema_version=schema_version,
         event_type=event_type,
         provider=provider,
         endpoint=endpoint,
@@ -413,6 +510,12 @@ def _build_event(
         feedback_score=context.feedback_score,
         prompt_hash=prompt_hash,
         response_hash=response_hash,
+        span_kind=span_kind if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
+        tool_name=tool_name if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
+        payload_refs=payload_refs if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
+        payload_blocks=payload_blocks if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
+        metrics=metrics if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
+        decision=decision if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
         error=event_error,
     )
 
@@ -515,6 +618,8 @@ def _extract_prompt_like(kwargs: dict[str, Any]) -> str:
         return _safe_json(kwargs.get("input"))
     if "contents" in kwargs:
         return _safe_json(kwargs.get("contents"))
+    if "prompt" in kwargs:
+        return _safe_json(kwargs.get("prompt"))
     return ""
 
 
@@ -549,6 +654,158 @@ def _safe_json(value: Any) -> str:
         return json.dumps(value, sort_keys=True, default=str)
     except (TypeError, ValueError):
         return str(value)
+
+
+def _normalize_non_empty_string(value: Any) -> Optional[str]:
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
+def _normalize_schema_version(value: Any) -> Optional[str]:
+    if value in (TRACE_SCHEMA_VERSION_V1, TRACE_SCHEMA_VERSION_V2):
+        return value
+    return None
+
+
+def _normalize_span_kind(value: Any) -> Optional[str]:
+    normalized = _normalize_non_empty_string(value)
+    if normalized is None:
+        return None
+    return normalized if normalized in ALLOWED_SPAN_KINDS else None
+
+
+def _normalize_payload_refs(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    refs: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        normalized = item.strip()
+        if not normalized:
+            continue
+        refs.append(normalized)
+    return refs
+
+
+def _normalize_payload_type(value: Any) -> str:
+    normalized = _normalize_non_empty_string(value)
+    if normalized == "prompt":
+        return "prompt_input"
+    if normalized in ALLOWED_PAYLOAD_TYPES:
+        return normalized
+    return "other"
+
+
+def _normalize_payload_blocks(value: Any) -> list[TracePayloadBlock]:
+    if not isinstance(value, list):
+        return []
+    blocks: list[TracePayloadBlock] = []
+    for item in value:
+        if isinstance(item, TracePayloadBlock):
+            payload_type = _normalize_payload_type(item.payload_type)
+            content = _normalize_non_empty_string(item.content)
+        elif isinstance(item, dict):
+            payload_type = _normalize_payload_type(item.get("payload_type") or item.get("payloadType"))
+            content = _normalize_non_empty_string(item.get("content"))
+        else:
+            continue
+        if not content:
+            continue
+        blocks.append(TracePayloadBlock(payload_type=payload_type, content=content))
+    return blocks
+
+
+def _append_content_payload_blocks(
+    payload_blocks: list[TracePayloadBlock],
+    prompt_content: str,
+    response_content: str,
+) -> list[TracePayloadBlock]:
+    blocks = list(payload_blocks)
+    if prompt_content:
+        blocks.append(TracePayloadBlock(payload_type="prompt_input", content=prompt_content))
+    if response_content:
+        blocks.append(TracePayloadBlock(payload_type="model_output", content=response_content))
+    return blocks
+
+
+def _normalize_metrics(value: Any) -> Optional[TraceMetrics]:
+    if isinstance(value, TraceMetrics):
+        return value
+    if not isinstance(value, dict):
+        return None
+    prompt_tokens = _to_positive_number(value.get("prompt_tokens"))
+    completion_tokens = _to_positive_number(value.get("completion_tokens"))
+    total_tokens = _to_positive_number(value.get("total_tokens"))
+    latency_ms = _to_positive_number(value.get("latency_ms"))
+    cost_usd = _to_positive_number(value.get("cost_usd"))
+    if cost_usd is None:
+        cost_usd = _to_positive_number(value.get("estimated_cost_usd"))
+    if (
+        prompt_tokens is None
+        and completion_tokens is None
+        and total_tokens is None
+        and latency_ms is None
+        and cost_usd is None
+    ):
+        return None
+    return TraceMetrics(
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        latency_ms=latency_ms,
+        cost_usd=cost_usd,
+    )
+
+
+def _normalize_decision(value: Any) -> Optional[TraceDecision]:
+    if isinstance(value, TraceDecision):
+        decision = value
+    elif isinstance(value, dict):
+        decision = TraceDecision(
+            outcome=_normalize_non_empty_string(value.get("outcome")),
+            retry_reason=_normalize_non_empty_string(value.get("retry_reason")),
+            fallback_reason=_normalize_non_empty_string(value.get("fallback_reason")),
+            routing_reason=_normalize_non_empty_string(value.get("routing_reason")),
+            route=_normalize_non_empty_string(value.get("route")),
+        )
+    else:
+        return None
+    if (
+        decision.outcome is None
+        and decision.retry_reason is None
+        and decision.fallback_reason is None
+        and decision.routing_reason is None
+        and decision.route is None
+    ):
+        return None
+    return decision
+
+
+def _build_trace_decision(context: TrackingContext) -> Optional[TraceDecision]:
+    explicit = _normalize_decision(context.decision)
+    if explicit is not None:
+        return explicit
+
+    routing_reason = _normalize_non_empty_string(context.routing_reason)
+    route = _normalize_non_empty_string(context.route)
+    if not routing_reason and not route:
+        return None
+    return TraceDecision(routing_reason=routing_reason, route=route)
+
+
+def _to_positive_number(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    if parsed < 0:
+        return None
+    return parsed
 
 
 def _hash_content(content: str) -> Optional[str]:

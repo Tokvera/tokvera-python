@@ -1,9 +1,35 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any, Dict, Literal, Optional
 
 EventStatus = Literal["success", "failure"]
+SpanKind = Literal["model", "tool", "orchestrator", "retrieval", "guardrail"]
+TracePayloadType = Literal["prompt_input", "tool_input", "tool_output", "model_output", "context", "other"]
+
+
+@dataclass(frozen=True)
+class TracePayloadBlock:
+    payload_type: TracePayloadType
+    content: str
+
+
+@dataclass(frozen=True)
+class TraceMetrics:
+    prompt_tokens: Optional[float] = None
+    completion_tokens: Optional[float] = None
+    total_tokens: Optional[float] = None
+    latency_ms: Optional[float] = None
+    cost_usd: Optional[float] = None
+
+
+@dataclass(frozen=True)
+class TraceDecision:
+    outcome: Optional[str] = None
+    retry_reason: Optional[str] = None
+    fallback_reason: Optional[str] = None
+    routing_reason: Optional[str] = None
+    route: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -28,6 +54,15 @@ class TrackingContext:
     quality_label: Optional[str] = None
     feedback_score: Optional[float] = None
     capture_content: bool = False
+    schema_version: Optional[str] = None
+    span_kind: Optional[SpanKind] = None
+    tool_name: Optional[str] = None
+    payload_refs: Optional[list[str]] = None
+    payload_blocks: Optional[list[TracePayloadBlock]] = None
+    metrics: Optional[TraceMetrics] = None
+    decision: Optional[TraceDecision] = None
+    routing_reason: Optional[str] = None
+    route: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +109,12 @@ class AnalyticsEvent:
     feedback_score: Optional[float]
     prompt_hash: Optional[str] = None
     response_hash: Optional[str] = None
+    span_kind: Optional[SpanKind] = None
+    tool_name: Optional[str] = None
+    payload_refs: Optional[list[str]] = None
+    payload_blocks: Optional[list[TracePayloadBlock]] = None
+    metrics: Optional[TraceMetrics] = None
+    decision: Optional[TraceDecision] = None
     error: Optional[EventError] = None
 
     def to_payload(self) -> Dict[str, Any]:
@@ -135,6 +176,26 @@ class AnalyticsEvent:
             payload["prompt_hash"] = self.prompt_hash
         if self.response_hash is not None:
             payload["response_hash"] = self.response_hash
+        if self.span_kind is not None:
+            payload["span_kind"] = self.span_kind
+        if self.tool_name is not None:
+            payload["tool_name"] = self.tool_name
+        if self.payload_refs:
+            payload["payload_refs"] = list(self.payload_refs)
+        if self.payload_blocks:
+            payload["payload_blocks"] = [
+                _compact_mapping(_to_mapping(item))
+                for item in self.payload_blocks
+                if _compact_mapping(_to_mapping(item))
+            ]
+        if self.metrics is not None:
+            metrics = _compact_mapping(_to_mapping(self.metrics))
+            if metrics:
+                payload["metrics"] = metrics
+        if self.decision is not None:
+            decision = _compact_mapping(_to_mapping(self.decision))
+            if decision:
+                payload["decision"] = decision
         if self.error is not None:
             payload["error"] = {
                 "type": self.error.type,
@@ -142,3 +203,17 @@ class AnalyticsEvent:
             }
 
         return payload
+
+
+def _to_mapping(value: Any) -> Dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return dict(value)
+    if is_dataclass(value):
+        return asdict(value)
+    return {}
+
+
+def _compact_mapping(mapping: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: value for key, value in mapping.items() if value is not None}

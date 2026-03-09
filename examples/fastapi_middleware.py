@@ -31,6 +31,9 @@ async def reply(prompt: str):
     tracked_client = track_openai(
         openai_client,
         api_key="your-tokvera-project-key",
+        schema_version="2026-04-01",
+        span_kind="model",
+        route="openai:gpt-4o-mini",
         **get_fastapi_track_kwargs(
             step_name="draft_reply",
             quality_label="good",

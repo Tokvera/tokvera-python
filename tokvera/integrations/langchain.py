@@ -81,6 +81,147 @@ def _contract(provider: str, endpoint: Optional[str]) -> tuple[str, str, str]:
     return ("openai", "openai.request", endpoint or "chat.completions.create")
 
 
+def _safe_json(value: Any) -> str:
+    try:
+        import json
+
+        return json.dumps(value, sort_keys=True, default=str)
+    except Exception:
+        return str(value)
+
+
+def _normalize_payload_type(value: Any) -> str:
+    normalized = _to_string(value)
+    if normalized == "prompt":
+        return "prompt_input"
+    if normalized in ALLOWED_PAYLOAD_TYPES:
+        return normalized
+    return "other"
+
+
+def _extract_response_text(result: Any) -> Optional[str]:
+    generations = getattr(result, "generations", None)
+    if not isinstance(generations, list):
+        return None
+    parts: list[str] = []
+    for group in generations:
+        candidates = group if isinstance(group, list) else [group]
+        for item in candidates:
+            if isinstance(item, Mapping):
+                text = _to_string(item.get("text"))
+                if text:
+                    parts.append(text)
+                    continue
+                message = item.get("message")
+                if isinstance(message, Mapping):
+                    content = _to_string(message.get("content"))
+                    if content:
+                        parts.append(content)
+            else:
+                text = _to_string(getattr(item, "text", None))
+                if text:
+                    parts.append(text)
+                    continue
+                message = getattr(item, "message", None)
+                content = _to_string(getattr(message, "content", None))
+                if content:
+                    parts.append(content)
+    if not parts:
+        return None
+    return "\n".join(parts)
+
+
+def _apply_trace_v2_fields(
+    payload: dict[str, Any],
+    options: dict[str, Any],
+    *,
+    prompt_content: Optional[str] = None,
+    response_content: Optional[str] = None,
+) -> dict[str, Any]:
+    schema_version = _to_string(options.get("schema_version"))
+    span_kind = _to_string(options.get("span_kind"))
+    if span_kind not in ALLOWED_SPAN_KINDS:
+        span_kind = None
+    tool_name = _to_string(options.get("tool_name"))
+
+    payload_refs_raw = options.get("payload_refs")
+    payload_refs = (
+        [item.strip() for item in payload_refs_raw if isinstance(item, str) and item.strip()]
+        if isinstance(payload_refs_raw, list)
+        else []
+    )
+
+    payload_blocks_raw = options.get("payload_blocks")
+    payload_blocks: list[dict[str, Any]] = []
+    if isinstance(payload_blocks_raw, list):
+        for item in payload_blocks_raw:
+            if not isinstance(item, Mapping):
+                continue
+            content = _to_string(item.get("content"))
+            if not content:
+                continue
+            payload_blocks.append(
+                {
+                    "payload_type": _normalize_payload_type(item.get("payload_type") or item.get("payloadType")),
+                    "content": content,
+                }
+            )
+
+    if bool(options.get("capture_content")):
+        if prompt_content:
+            payload_blocks.append({"payload_type": "prompt_input", "content": prompt_content})
+        if response_content:
+            payload_blocks.append({"payload_type": "model_output", "content": response_content})
+
+    metrics = options.get("metrics") if isinstance(options.get("metrics"), Mapping) else {}
+    normalized_metrics = {
+        "prompt_tokens": metrics.get("prompt_tokens"),
+        "completion_tokens": metrics.get("completion_tokens"),
+        "total_tokens": metrics.get("total_tokens"),
+        "latency_ms": metrics.get("latency_ms"),
+        "cost_usd": metrics.get("cost_usd", metrics.get("estimated_cost_usd")),
+    }
+    normalized_metrics = {key: value for key, value in normalized_metrics.items() if value is not None}
+
+    decision = options.get("decision") if isinstance(options.get("decision"), Mapping) else {}
+    normalized_decision = {
+        "outcome": _to_string(decision.get("outcome")),
+        "retry_reason": _to_string(decision.get("retry_reason")),
+        "fallback_reason": _to_string(decision.get("fallback_reason")),
+        "routing_reason": _to_string(decision.get("routing_reason") or options.get("routing_reason")),
+        "route": _to_string(decision.get("route") or options.get("route")),
+    }
+    normalized_decision = {key: value for key, value in normalized_decision.items() if value is not None}
+
+    should_use_v2 = (
+        schema_version == TRACE_SCHEMA_VERSION_V2
+        or span_kind is not None
+        or tool_name is not None
+        or len(payload_refs) > 0
+        or len(payload_blocks) > 0
+        or len(normalized_metrics) > 0
+        or len(normalized_decision) > 0
+    )
+
+    if not should_use_v2:
+        return payload
+
+    payload["schema_version"] = TRACE_SCHEMA_VERSION_V2
+    if span_kind is not None:
+        payload["span_kind"] = span_kind
+    if tool_name is not None:
+        payload["tool_name"] = tool_name
+    if payload_refs:
+        payload["payload_refs"] = payload_refs
+    if payload_blocks:
+        payload["payload_blocks"] = payload_blocks
+    if normalized_metrics:
+        payload["metrics"] = normalized_metrics
+    if normalized_decision:
+        payload["decision"] = normalized_decision
+    return payload
+
+
 def _extract_usage(response: Any) -> dict[str, int]:
     llm_output = getattr(response, "llm_output", None) or getattr(response, "llmOutput", None)
     if not isinstance(llm_output, Mapping):
@@ -147,6 +288,7 @@ class _RunSnapshot:
     model: Optional[str]
     tags: dict[str, Any]
     evaluation: Optional[dict[str, Any]]
+    prompt_content: Optional[str]
 
 
 class TokveraLangChainCallbackHandler(BaseCallbackHandler):
@@ -176,6 +318,16 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
         endpoint: Optional[str] = None,
         model: Optional[str] = None,
         run_id_as_trace_id: bool = False,
+        schema_version: Optional[str] = None,
+        span_kind: Optional[str] = None,
+        tool_name: Optional[str] = None,
+        payload_refs: Optional[list[str]] = None,
+        payload_blocks: Optional[list[dict[str, Any]]] = None,
+        metrics: Optional[dict[str, Any]] = None,
+        decision: Optional[dict[str, Any]] = None,
+        routing_reason: Optional[str] = None,
+        route: Optional[str] = None,
+        capture_content: bool = False,
     ) -> None:
         self._options = {
             "api_key": api_key,
@@ -201,6 +353,16 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
             "endpoint": endpoint,
             "model": model,
             "run_id_as_trace_id": run_id_as_trace_id,
+            "schema_version": schema_version,
+            "span_kind": span_kind,
+            "tool_name": tool_name,
+            "payload_refs": payload_refs,
+            "payload_blocks": payload_blocks,
+            "metrics": metrics,
+            "decision": decision,
+            "routing_reason": routing_reason,
+            "route": route,
+            "capture_content": capture_content,
         }
         self._runs: dict[str, _RunSnapshot] = {}
 
@@ -320,6 +482,7 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
             model=model,
             tags=tags,
             evaluation=evaluation_payload,
+            prompt_content=_safe_json(prompts) if prompts else None,
         )
 
     def on_llm_end(self, response: Any, run_id: Any, **kwargs: Any) -> None:
@@ -339,7 +502,7 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
             evaluation.setdefault("outcome", tags.get("outcome") or "success")
 
         payload = {
-            "schema_version": "2026-02-16",
+            "schema_version": TRACE_SCHEMA_VERSION_V1,
             "event_type": snapshot.event_type,
             "provider": snapshot.provider,
             "endpoint": snapshot.endpoint,
@@ -352,6 +515,13 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
         }
         if evaluation:
             payload["evaluation"] = evaluation
+
+        payload = _apply_trace_v2_fields(
+            payload,
+            self._options,
+            prompt_content=snapshot.prompt_content,
+            response_content=_extract_response_text(response),
+        )
 
         ingest_event_async(payload, api_key=str(self._options["api_key"]))
 
@@ -371,7 +541,7 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
             evaluation.setdefault("outcome", tags.get("outcome") or "failure")
 
         payload = {
-            "schema_version": "2026-02-16",
+            "schema_version": TRACE_SCHEMA_VERSION_V1,
             "event_type": snapshot.event_type,
             "provider": snapshot.provider,
             "endpoint": snapshot.endpoint,
@@ -393,8 +563,18 @@ class TokveraLangChainCallbackHandler(BaseCallbackHandler):
         if evaluation:
             payload["evaluation"] = evaluation
 
+        payload = _apply_trace_v2_fields(
+            payload,
+            self._options,
+            prompt_content=snapshot.prompt_content,
+        )
+
         ingest_event_async(payload, api_key=str(self._options["api_key"]))
 
 
 def create_langchain_callback_handler(**kwargs: Any) -> TokveraLangChainCallbackHandler:
     return TokveraLangChainCallbackHandler(**kwargs)
+TRACE_SCHEMA_VERSION_V1 = "2026-02-16"
+TRACE_SCHEMA_VERSION_V2 = "2026-04-01"
+ALLOWED_SPAN_KINDS = {"model", "tool", "orchestrator", "retrieval", "guardrail"}
+ALLOWED_PAYLOAD_TYPES = {"prompt_input", "tool_input", "tool_output", "model_output", "context", "other"}

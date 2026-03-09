@@ -88,3 +88,52 @@ def test_llamaindex_callback_emits_failure_event(monkeypatch) -> None:
     assert event["usage"]["total_tokens"] == 0
     assert event["error"]["message"] == "llm failure"
     assert event["tags"]["outcome"] == "failure"
+
+
+def test_llamaindex_callback_emits_v2_trace_fields(monkeypatch) -> None:
+    emitted: list[dict] = []
+
+    def fake_ingest(payload: dict, *, api_key: str, timeout: float = 2.0) -> None:
+        emitted.append(payload)
+
+    monkeypatch.setattr("tokvera.integrations.llamaindex.ingest_event_async", fake_ingest)
+
+    callback = create_llamaindex_callback_handler(
+        api_key="tokvera_project_key",
+        feature="agent_support",
+        tenant_id="acme",
+        schema_version="2026-04-01",
+        span_kind="tool",
+        tool_name="search_docs",
+        payload_refs=["ref_123"],
+        payload_blocks=[{"payload_type": "context", "content": "cached policy"}],
+        metrics={"estimated_cost_usd": 0.0002},
+        decision={"routing_reason": "budget_route", "route": "openai:gpt-4o-mini"},
+    )
+
+    event_id = callback.on_event_start(
+        event_type="LLM",
+        payload={"model": "gpt-4o-mini"},
+        event_id="evt_300",
+    )
+    callback.on_event_end(
+        event_type="LLM",
+        payload={
+            "prompt_tokens": 4,
+            "completion_tokens": 2,
+            "total_tokens": 6,
+        },
+        event_id=event_id,
+    )
+
+    assert len(emitted) == 1
+    event = emitted[0]
+    assert event["schema_version"] == "2026-04-01"
+    assert event["span_kind"] == "tool"
+    assert event["tool_name"] == "search_docs"
+    assert event["payload_refs"] == ["ref_123"]
+    assert event["metrics"]["cost_usd"] == 0.0002
+    assert event["decision"]["routing_reason"] == "budget_route"
+    assert event["decision"]["route"] == "openai:gpt-4o-mini"
+    assert isinstance(event["payload_blocks"], list)
+    assert len(event["payload_blocks"]) >= 1
