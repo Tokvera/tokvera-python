@@ -2,15 +2,17 @@
 
 `tokvera` is a lightweight Python SDK that wraps OpenAI, Anthropic, and Gemini clients and emits usage analytics in a fire-and-forget way.
 
-## What's New in v0.2.4
+## What's New in v0.2.6
 
 - Added Trace Context v1 tags.
 - New optional tags: `trace_id`, `run_id`, `conversation_id`, `span_id`, `parent_span_id`, `step_name`.
 - Added Evaluation Signals v1 fields: `outcome`, `retry_reason`, `fallback_reason`, `quality_label`, `feedback_score`.
 - Added optional Trace Context v2 fields (`schema_version=2026-04-01`) for span/tool metadata, payload refs/blocks, per-step metrics, and routing decisions.
 - Added FastAPI middleware integration helpers.
+- Added Django middleware integration helpers.
 - Added LangChain callback integration helpers.
 - Added LlamaIndex callback integration helpers.
+- Added Celery task integration helpers.
 - Auto-generates `trace_id` and `span_id` when you do not provide them.
 
 ## Installation
@@ -128,6 +130,33 @@ async def reply():
     )
 ```
 
+## Django Middleware Integration
+
+Use middleware factory to attach request context and derive child model-call spans.
+
+```python
+from tokvera import (
+    create_django_tracking_middleware,
+    get_django_track_kwargs,
+    track_openai,
+)
+
+tokvera_middleware = create_django_tracking_middleware(
+    defaults={"feature": "support_bot", "environment": "production"}
+)
+
+def reply_view(request):
+    tracked = track_openai(
+        openai_client,
+        api_key="tokvera_project_key",
+        **get_django_track_kwargs(step_name="django_view_reply"),
+    )
+    return tracked.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "Hello"}],
+    )
+```
+
 ## Background Job Integration
 
 Use helpers to keep `trace_id` and `run_id` stable across async worker steps while emitting child spans per step.
@@ -159,6 +188,34 @@ tracked.chat.completions.create(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "Summarize yesterday incidents."}],
 )
+```
+
+## Celery Task Integration
+
+Use Celery task request metadata to keep trace/run continuity in async workers.
+
+```python
+from tokvera import (
+    create_celery_task_context,
+    get_celery_track_kwargs,
+    track_openai,
+)
+
+def run_task(task_request):
+    context = create_celery_task_context(
+        task_request,
+        tenant_id="acme",
+        environment="production",
+    )
+    tracked = track_openai(
+        openai_client,
+        api_key="tokvera_project_key",
+        **get_celery_track_kwargs(context, step_name="celery_worker_reply"),
+    )
+    return tracked.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": "Summarize daily usage"}],
+    )
 ```
 
 ## LangChain Callback Integration
@@ -205,7 +262,9 @@ callback_manager = CallbackManager([tokvera_handler])
 ## Examples
 
 - `examples/fastapi_middleware.py`: request-scoped trace context with FastAPI.
+- `examples/django_middleware.py`: request-scoped trace context with Django.
 - `examples/background_jobs.py`: background worker/job trace propagation.
+- `examples/celery_task.py`: Celery task metadata to child-span propagation.
 
 ## Quick Start
 

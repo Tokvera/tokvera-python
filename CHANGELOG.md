@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.6] - 2026-03-12
+
+### Added
+- Django middleware integration helpers:
+  - `create_django_tracking_middleware(...)`
+  - `get_django_request_context()`
+  - `get_django_track_kwargs(...)`
+- Celery task integration helpers:
+  - `create_celery_task_context(...)`
+  - `get_celery_track_kwargs(...)`
+- Adapter integration tests for Django and Celery helper flows.
+
+### Changed
+- Updated SDK user-agent string to `tokvera-python-sdk/0.2.6`.
+
 ## [0.2.4] - 2026-03-08
 
 ### Added
