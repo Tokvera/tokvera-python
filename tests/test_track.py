@@ -192,6 +192,41 @@ def test_responses_wrapper_returns_original_object(monkeypatch: pytest.MonkeyPat
     assert isinstance(emitted[0]["tags"]["span_id"], str)
 
 
+def test_emit_lifecycle_events_sends_in_progress_before_success(monkeypatch: pytest.MonkeyPatch) -> None:
+    response = _Response()
+    openai_client = _OpenAIClient(response)
+
+    emitted: list[dict[str, Any]] = []
+
+    def fake_ingest(payload: dict[str, Any], *, api_key: str, timeout: float = 2.0) -> None:
+        emitted.append(payload)
+
+    monkeypatch.setattr("tokvera.track.ingest_event_async", fake_ingest)
+
+    client = track_openai(
+        openai_client,
+        api_key="tokvera_project_key",
+        feature="support_bot",
+        tenant_id="acme",
+        emit_lifecycle_events=True,
+        capture_content=True,
+    )
+
+    result = client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "user", "content": "hi"}])
+
+    assert result is response
+    assert len(emitted) == 2
+    assert emitted[0]["status"] == "in_progress"
+    assert emitted[0]["tags"]["run_id"].startswith("run_")
+    assert emitted[0]["tags"]["trace_id"].startswith("trc_")
+    assert emitted[0]["tags"]["outcome"] is None
+    assert emitted[0]["payload_blocks"]
+    assert emitted[1]["status"] == "success"
+    assert emitted[1]["tags"]["run_id"] == emitted[0]["tags"]["run_id"]
+    assert emitted[1]["tags"]["trace_id"] == emitted[0]["tags"]["trace_id"]
+    assert emitted[1]["usage"]["total_tokens"] == 15
+
+
 def test_ingestion_failure_does_not_break_user_response(monkeypatch: pytest.MonkeyPatch) -> None:
     response = _Response()
     openai_client = _OpenAIClient(response)

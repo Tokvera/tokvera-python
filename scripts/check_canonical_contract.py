@@ -21,7 +21,7 @@ REQUIRED_TOP_LEVEL_FIELDS = [
     "usage",
     "tags",
 ]
-STATUS_VALUES = ["success", "failure"]
+STATUS_VALUES = ["in_progress", "success", "failure"]
 USAGE_FIELDS = ["prompt_tokens", "completion_tokens", "total_tokens"]
 ERROR_FIELDS = ["type", "message"]
 ALLOWED_TAG_FIELDS = [

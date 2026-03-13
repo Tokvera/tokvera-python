@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, is_dataclass
 from typing import Any, Dict, Literal, Optional
 
-EventStatus = Literal["success", "failure"]
+EventStatus = Literal["in_progress", "success", "failure"]
 SpanKind = Literal["model", "tool", "orchestrator", "retrieval", "guardrail"]
 TracePayloadType = Literal["prompt_input", "tool_input", "tool_output", "model_output", "context", "other"]
 
@@ -54,6 +54,7 @@ class TrackingContext:
     quality_label: Optional[str] = None
     feedback_score: Optional[float] = None
     capture_content: bool = False
+    emit_lifecycle_events: bool = False
     schema_version: Optional[str] = None
     span_kind: Optional[SpanKind] = None
     tool_name: Optional[str] = None

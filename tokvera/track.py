@@ -5,6 +5,7 @@ import hashlib
 import json
 import time
 import uuid
+from dataclasses import replace
 from typing import Any, Callable, Optional, Sequence
 
 from .ingest import ingest_event_async
@@ -47,6 +48,7 @@ def track_openai(
     quality_label: Optional[str] = None,
     feedback_score: Optional[float] = None,
     capture_content: bool = False,
+    emit_lifecycle_events: bool = False,
     schema_version: Optional[str] = None,
     span_kind: Optional[str] = None,
     tool_name: Optional[str] = None,
@@ -78,6 +80,7 @@ def track_openai(
         quality_label=quality_label,
         feedback_score=feedback_score,
         capture_content=capture_content,
+        emit_lifecycle_events=emit_lifecycle_events,
         schema_version=schema_version,
         span_kind=span_kind if isinstance(span_kind, str) else None,
         tool_name=tool_name,
@@ -115,6 +118,7 @@ def track_anthropic(
     quality_label: Optional[str] = None,
     feedback_score: Optional[float] = None,
     capture_content: bool = False,
+    emit_lifecycle_events: bool = False,
     schema_version: Optional[str] = None,
     span_kind: Optional[str] = None,
     tool_name: Optional[str] = None,
@@ -146,6 +150,7 @@ def track_anthropic(
         quality_label=quality_label,
         feedback_score=feedback_score,
         capture_content=capture_content,
+        emit_lifecycle_events=emit_lifecycle_events,
         schema_version=schema_version,
         span_kind=span_kind if isinstance(span_kind, str) else None,
         tool_name=tool_name,
@@ -183,6 +188,7 @@ def track_gemini(
     quality_label: Optional[str] = None,
     feedback_score: Optional[float] = None,
     capture_content: bool = False,
+    emit_lifecycle_events: bool = False,
     schema_version: Optional[str] = None,
     span_kind: Optional[str] = None,
     tool_name: Optional[str] = None,
@@ -214,6 +220,7 @@ def track_gemini(
         quality_label=quality_label,
         feedback_score=feedback_score,
         capture_content=capture_content,
+        emit_lifecycle_events=emit_lifecycle_events,
         schema_version=schema_version,
         span_kind=span_kind if isinstance(span_kind, str) else None,
         tool_name=tool_name,
@@ -381,6 +388,31 @@ def _tracked_call(
 ) -> Any:
     started = time.perf_counter()
     model = _extract_model(kwargs)
+    operation_context = (
+        context
+        if context.trace_id and context.run_id and context.span_id
+        else replace(
+            context,
+            trace_id=context.trace_id or _new_id("trc"),
+            run_id=context.run_id or _new_id("run"),
+            span_id=context.span_id or _new_id("spn"),
+        )
+    )
+    if operation_context.emit_lifecycle_events:
+        lifecycle_event = _build_event(
+            provider=provider,
+            event_type=event_type,
+            endpoint=endpoint,
+            context=_strip_terminal_context_fields(operation_context),
+            model=model,
+            usage=UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0),
+            latency_ms=0,
+            status="in_progress",
+            kwargs=kwargs,
+            response=None,
+            error=None,
+        )
+        _safe_emit(lifecycle_event.to_payload(), api_key=context.api_key)
 
     try:
         response = call()
@@ -390,7 +422,7 @@ def _tracked_call(
             provider=provider,
             event_type=event_type,
             endpoint=endpoint,
-            context=context,
+            context=operation_context,
             model=model,
             usage=UsageMetrics(prompt_tokens=0, completion_tokens=0, total_tokens=0),
             latency_ms=latency_ms,
@@ -409,7 +441,7 @@ def _tracked_call(
         provider=provider,
         event_type=event_type,
         endpoint=endpoint,
-        context=context,
+        context=operation_context,
         model=model or model_from_response_extractor(response),
         usage=usage,
         latency_ms=latency_ms,
@@ -449,6 +481,7 @@ def _build_event(
         event_error = EventError(type=error.__class__.__name__, message=str(error))
 
     trace_id = context.trace_id or _new_id("trc")
+    run_id = context.run_id or _new_id("run")
     span_id = context.span_id or _new_id("spn")
     explicit_schema = _normalize_schema_version(context.schema_version)
     span_kind = _normalize_span_kind(context.span_kind)
@@ -485,7 +518,7 @@ def _build_event(
         event_type=event_type,
         provider=provider,
         endpoint=endpoint,
-        status="success" if status == "success" else "failure",
+        status=status,
         timestamp=dt.datetime.now(dt.timezone.utc).isoformat(),
         latency_ms=latency_ms,
         model=model or "unknown",
@@ -498,7 +531,7 @@ def _build_event(
         environment=context.environment,
         template_id=context.template_id,
         trace_id=trace_id,
-        run_id=context.run_id,
+        run_id=run_id,
         conversation_id=context.conversation_id,
         span_id=span_id,
         parent_span_id=context.parent_span_id,
@@ -517,6 +550,41 @@ def _build_event(
         metrics=metrics if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
         decision=decision if schema_version == TRACE_SCHEMA_VERSION_V2 else None,
         error=event_error,
+    )
+
+
+def _strip_terminal_context_fields(context: TrackingContext) -> TrackingContext:
+    return TrackingContext(
+        api_key=context.api_key,
+        feature=context.feature,
+        tenant_id=context.tenant_id,
+        customer_id=context.customer_id,
+        attempt_type=context.attempt_type,
+        plan=context.plan,
+        environment=context.environment,
+        template_id=context.template_id,
+        trace_id=context.trace_id,
+        run_id=context.run_id,
+        conversation_id=context.conversation_id,
+        span_id=context.span_id,
+        parent_span_id=context.parent_span_id,
+        step_name=context.step_name,
+        outcome=None,
+        retry_reason=None,
+        fallback_reason=None,
+        quality_label=None,
+        feedback_score=None,
+        capture_content=context.capture_content,
+        emit_lifecycle_events=context.emit_lifecycle_events,
+        schema_version=context.schema_version,
+        span_kind=context.span_kind,
+        tool_name=context.tool_name,
+        payload_refs=context.payload_refs,
+        payload_blocks=context.payload_blocks,
+        metrics=context.metrics,
+        decision=context.decision,
+        routing_reason=context.routing_reason,
+        route=context.route,
     )
 
 
