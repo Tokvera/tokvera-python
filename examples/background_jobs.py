@@ -22,6 +22,7 @@ def run_job() -> None:
         schema_version="2026-04-01",
         span_kind="orchestrator",
         routing_reason="background_job",
+        emit_lifecycle_events=True,
         **get_background_track_kwargs(
             job_context,
             step_name="summarize_incidents",

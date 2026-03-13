@@ -34,6 +34,7 @@ async def reply(prompt: str):
         schema_version="2026-04-01",
         span_kind="model",
         route="openai:gpt-4o-mini",
+        emit_lifecycle_events=True,
         **get_fastapi_track_kwargs(
             step_name="draft_reply",
             quality_label="good",

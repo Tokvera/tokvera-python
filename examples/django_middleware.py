@@ -28,6 +28,7 @@ def example_view(request):
     openai = track_openai(
         __import__("openai").OpenAI(api_key="YOUR_OPENAI_API_KEY"),
         api_key="YOUR_TOKVERA_API_KEY",
+        emit_lifecycle_events=True,
         **get_django_track_kwargs(step_name="django_view_reply"),
     )
     result = openai.chat.completions.create(
@@ -35,4 +36,3 @@ def example_view(request):
         messages=[{"role": "user", "content": "Hello from Django"}],
     )
     return {"result": result}
-

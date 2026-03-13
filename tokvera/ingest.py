@@ -8,7 +8,7 @@ import warnings
 from typing import Any, Dict
 from urllib import error, request
 
-DEFAULT_USER_AGENT = "tokvera-python-sdk/0.2.6"
+DEFAULT_USER_AGENT = "tokvera-python-sdk/0.2.7"
 DEFAULT_MAX_RETRIES = 2
 DEFAULT_RETRY_DELAY_SECONDS = 0.25
 MAX_ERROR_BODY_LENGTH = 256

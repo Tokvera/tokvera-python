@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.7] - 2026-03-14
+
+### Added
+- Optional lifecycle start events via `emit_lifecycle_events=True` so Tokvera can show in-progress runs in `/dashboard/traces/live`.
+
+### Changed
+- Canonical contract checks now accept `in_progress` as a valid lifecycle status.
+- Tracking wrappers reuse generated trace/run/span ids across lifecycle start and terminal events.
+- Updated SDK user-agent string to `tokvera-python-sdk/0.2.7`.
+- Quickstart and example code now demonstrate realtime trace lifecycle emission.
+
 ## [0.2.6] - 2026-03-12
 
 ### Added
