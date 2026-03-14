@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.9] - 2026-03-14
+
+### Added
+- Wave 2 runtime helper adapters:
+  - `create_autogen_tracer(...)`
+  - `create_mastra_tracer(...)`
+  - `create_temporal_tracer(...)`
+  - `create_pipecat_tracer(...)`
+  - `create_livekit_tracer(...)`
+  - `create_openai_compatible_gateway_tracer(...)`
+- New example: `examples/beta_runtime_helpers.py`.
+
+### Changed
+- Updated SDK user-agent string to `tokvera-python-sdk/0.2.9`.
+- Runtime helper tests now cover the Wave 2 lifecycle adapter set.
+
 ## [0.2.8] - 2026-03-14
 
 ### Added
