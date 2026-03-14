@@ -85,6 +85,13 @@ export TOKVERA_INGEST_URL="https://api.tokvera.org/v1/events"
   - `create_pydanticai_tracer(...)`
 - CrewAI:
   - `create_crewai_tracer(...)`
+- Wave 2 beta runtimes:
+  - `create_autogen_tracer(...)`
+  - `create_mastra_tracer(...)`
+  - `create_temporal_tracer(...)`
+  - `create_pipecat_tracer(...)`
+  - `create_livekit_tracer(...)`
+  - `create_openai_compatible_gateway_tracer(...)`
 - OpenTelemetry bridge:
   - `TokveraOTelSpanExporter`
 - FastAPI middleware:
@@ -124,6 +131,7 @@ Contract references:
 
 - `examples/manual_tracer.py`
 - `examples/agent_runtimes.py`
+- `examples/beta_runtime_helpers.py`
 - `examples/fastapi_middleware.py`
 - `examples/django_middleware.py`
 - `examples/background_jobs.py`

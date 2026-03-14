@@ -123,6 +123,63 @@ class TokveraCrewAITracer(TokveraRuntimeAdapter):
         return self.start_run(**_with_defaults(kwargs, step_name="crew_run", span_kind="orchestrator"))
 
 
+@dataclass
+class TokveraAutoGenTracer(TokveraRuntimeAdapter):
+    def start_conversation(self, **kwargs: Any) -> TraceHandle:
+        return self.start_run(**_with_defaults(kwargs, step_name="autogen_conversation", span_kind="orchestrator"))
+
+    def start_agent(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_node(parent, **_with_defaults(kwargs, step_name="agent_turn", span_kind="orchestrator"))
+
+
+@dataclass
+class TokveraMastraTracer(TokveraRuntimeAdapter):
+    def start_workflow(self, **kwargs: Any) -> TraceHandle:
+        return self.start_run(**_with_defaults(kwargs, step_name="mastra_workflow", span_kind="orchestrator"))
+
+    def start_step(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_node(parent, **_with_defaults(kwargs, step_name="workflow_step", span_kind="orchestrator"))
+
+
+@dataclass
+class TokveraTemporalTracer(TokveraRuntimeAdapter):
+    def start_workflow(self, **kwargs: Any) -> TraceHandle:
+        return self.start_run(**_with_defaults(kwargs, step_name="temporal_workflow", span_kind="orchestrator"))
+
+    def start_activity(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_tool(parent, **_with_defaults(kwargs, step_name="workflow_activity", span_kind="tool"))
+
+
+@dataclass
+class TokveraPipecatTracer(TokveraRuntimeAdapter):
+    def start_turn(self, **kwargs: Any) -> TraceHandle:
+        return self.start_run(**_with_defaults(kwargs, step_name="voice_turn", span_kind="orchestrator"))
+
+    def start_transcription(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_model(parent, **_with_defaults(kwargs, step_name="speech_to_text", span_kind="model"))
+
+
+@dataclass
+class TokveraLiveKitTracer(TokveraRuntimeAdapter):
+    def start_session(self, **kwargs: Any) -> TraceHandle:
+        return self.start_run(**_with_defaults(kwargs, step_name="livekit_session", span_kind="orchestrator"))
+
+    def start_turn(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_model(parent, **_with_defaults(kwargs, step_name="voice_turn", span_kind="model"))
+
+
+@dataclass
+class TokveraOpenAICompatibleGatewayTracer(TokveraRuntimeAdapter):
+    def start_request(self, **kwargs: Any) -> TraceHandle:
+        return self.start_run(**_with_defaults(kwargs, step_name="gateway_request", span_kind="orchestrator"))
+
+    def start_downstream(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_model(parent, **_with_defaults(kwargs, step_name="downstream_provider_call", span_kind="model"))
+
+    def start_fallback(self, parent: TraceHandle, **kwargs: Any) -> TraceHandle:
+        return self.start_branch(parent, **_with_defaults(kwargs, step_name="fallback_route", span_kind="orchestrator"))
+
+
 def configure_claude_agent_sdk(**kwargs: Any) -> TokveraClaudeAgentSDKTracer:
     kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
     return TokveraClaudeAgentSDKTracer(runtime="claude_agent_sdk", tracer=create_tracer(**kwargs))
@@ -151,3 +208,33 @@ def create_pydanticai_tracer(**kwargs: Any) -> TokveraPydanticAITracer:
 def create_crewai_tracer(**kwargs: Any) -> TokveraCrewAITracer:
     kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
     return TokveraCrewAITracer(runtime="crewai", tracer=create_tracer(**kwargs))
+
+
+def create_autogen_tracer(**kwargs: Any) -> TokveraAutoGenTracer:
+    kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
+    return TokveraAutoGenTracer(runtime="autogen", tracer=create_tracer(**kwargs))
+
+
+def create_mastra_tracer(**kwargs: Any) -> TokveraMastraTracer:
+    kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
+    return TokveraMastraTracer(runtime="mastra", tracer=create_tracer(**kwargs))
+
+
+def create_temporal_tracer(**kwargs: Any) -> TokveraTemporalTracer:
+    kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
+    return TokveraTemporalTracer(runtime="temporal", tracer=create_tracer(**kwargs))
+
+
+def create_pipecat_tracer(**kwargs: Any) -> TokveraPipecatTracer:
+    kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
+    return TokveraPipecatTracer(runtime="pipecat", tracer=create_tracer(**kwargs))
+
+
+def create_livekit_tracer(**kwargs: Any) -> TokveraLiveKitTracer:
+    kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
+    return TokveraLiveKitTracer(runtime="livekit", tracer=create_tracer(**kwargs))
+
+
+def create_openai_compatible_gateway_tracer(**kwargs: Any) -> TokveraOpenAICompatibleGatewayTracer:
+    kwargs.setdefault("schema_version", TRACE_SCHEMA_VERSION_V2)
+    return TokveraOpenAICompatibleGatewayTracer(runtime="openai_compatible_gateway", tracer=create_tracer(**kwargs))
