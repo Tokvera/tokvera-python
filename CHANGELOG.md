@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.8] - 2026-03-14
+
+### Added
+- Manual tracing substrate for existing apps:
+  - `create_tracer(...)`
+  - `start_trace(...)`
+  - `start_span(...)`
+  - `finish_span(...)`
+  - `fail_span(...)`
+  - `attach_payload(...)`
+  - `get_track_kwargs_from_trace_context(...)`
+- Mistral wrapper via `track_mistral(...)`.
+- OpenTelemetry bridge via `TokveraOTelSpanExporter`.
+- Thin runtime helpers:
+  - `configure_claude_agent_sdk(...)`
+  - `configure_google_adk(...)`
+  - `create_langgraph_tracer(...)`
+  - `create_instructor_tracer(...)`
+  - `create_pydanticai_tracer(...)`
+  - `create_crewai_tracer(...)`
+- New examples for manual tracing and agent/runtime helper flows.
+
+### Changed
+- Updated SDK user-agent string to `tokvera-python-sdk/0.2.8`.
+- Canonical contract expectations now include `mistral.request` and `tokvera.trace`.
+
 ## [0.2.7] - 2026-03-14
 
 ### Added

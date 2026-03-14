@@ -2,13 +2,14 @@
 
 Python SDK for Tokvera AI cost and trace telemetry.
 
-Current version: `0.2.7`
+Current version: `0.2.8`
 
 ## What It Tracks
 
 - OpenAI
 - Anthropic
 - Gemini
+- Mistral
 
 Tracked calls emit normalized telemetry to Tokvera ingest (`/v1/events`) with:
 - latency, status, model, token usage
@@ -62,6 +63,30 @@ export TOKVERA_INGEST_URL="https://api.tokvera.org/v1/events"
 
 ## Integration Helpers
 
+- Existing app / manual tracing:
+  - `create_tracer(...)`
+  - `start_trace(...)`
+  - `start_span(...)`
+  - `finish_span(...)`
+  - `fail_span(...)`
+  - `attach_payload(...)`
+  - `get_track_kwargs_from_trace_context(...)`
+- Mistral:
+  - `track_mistral(...)`
+- Claude Agent SDK:
+  - `configure_claude_agent_sdk(...)`
+- Google ADK:
+  - `configure_google_adk(...)`
+- LangGraph:
+  - `create_langgraph_tracer(...)`
+- Instructor:
+  - `create_instructor_tracer(...)`
+- PydanticAI:
+  - `create_pydanticai_tracer(...)`
+- CrewAI:
+  - `create_crewai_tracer(...)`
+- OpenTelemetry bridge:
+  - `TokveraOTelSpanExporter`
 - FastAPI middleware:
   - `create_fastapi_tracking_middleware(...)`
   - `get_fastapi_track_kwargs(...)`
@@ -97,6 +122,8 @@ Contract references:
 
 ## Examples
 
+- `examples/manual_tracer.py`
+- `examples/agent_runtimes.py`
 - `examples/fastapi_middleware.py`
 - `examples/django_middleware.py`
 - `examples/background_jobs.py`
